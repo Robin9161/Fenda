@@ -1,0 +1,36 @@
+# ───────── 凭证：绝不提交 ─────────
+auth/
+*.json.disabled
+.ui-password
+.backup-key
+.quota.json
+.management-secret
+config.yaml
+# 配置模板可以提交
+!config.example.yaml
+
+# ───────── 日志（含完整对话内容）─────────
+logs/
+*.log
+*.log.*
+
+# ───────── 二进制与下载包 ─────────
+cli-proxy-api
+cli-proxy-api.prev
+*.tar.gz
+*.zip
+
+# ───────── 备份 ─────────
+*.bak
+*.bak-*
+*.bak.*
+*-backups/
+.state/
+
+# ───────── 系统 ─────────
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+*.pyo
+node_modules/

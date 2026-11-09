@@ -1,0 +1,9 @@
+[Unit]
+Description=Claude gateway watchdog (health check + self-heal)
+
+[Service]
+Type=oneshot
+User=cliproxy
+Group=cliproxy
+Environment=GW_DIR=/opt/cliproxyapi
+ExecStart=/opt/cliproxyapi/deploy/watchdog.sh

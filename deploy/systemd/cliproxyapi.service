@@ -1,0 +1,27 @@
+[Unit]
+Description=Claude Max reverse-proxy gateway (CLIProxyAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cliproxy
+Group=cliproxy
+WorkingDirectory=/opt/cliproxyapi
+ExecStart=/opt/cliproxyapi/cli-proxy-api -config /opt/cliproxyapi/config.yaml
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+# 只允许写自己的目录
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/cliproxyapi
+
+StandardOutput=append:/opt/cliproxyapi/logs/out.log
+StandardError=append:/opt/cliproxyapi/logs/err.log
+
+[Install]
+WantedBy=multi-user.target

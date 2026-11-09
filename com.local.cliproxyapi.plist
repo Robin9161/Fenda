@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.local.cliproxyapi</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/a11/claude-gateway/cli-proxy-api</string>
+        <string>-config</string>
+        <string>/Users/a11/claude-gateway/config.yaml</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/a11/claude-gateway</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- 崩溃退避，避免疯狂重启 -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/a11/claude-gateway/logs/out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/a11/claude-gateway/logs/err.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/a11</string>
+        <key>TZ</key>
+        <string>Asia/Tokyo</string>
+    </dict>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
