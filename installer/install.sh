@@ -333,11 +333,31 @@ BIN_PATH=""
 fetch_latest() {
   step "查询最新版本"
 
-  local api="https://api.github.com/repos/$REPO/releases/latest"
-  local json
-  json=$(curl -sL -m 30 "$api" 2>/dev/null) || die "无法访问 GitHub API（网络？）"
+  LATEST_TAG="${CG_TAG:-}"
+  local json=""
+  if [ -z "$LATEST_TAG" ]; then
+    local api="https://api.github.com/repos/$REPO/releases/latest"
+    json=$(curl -sL -m 20 "$api" 2>/dev/null || true)
+    LATEST_TAG=$(printf '%s' "$json" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/' || true)
+  fi
 
-  LATEST_TAG=$(printf '%s' "$json" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/' || true)
+  # 共享出口 IP 容易撞上 GitHub REST API 匿名限流（60 次/小时），回退走 Web 302 重定向解析 tag
+  if [ -z "$LATEST_TAG" ]; then
+    local eff_url=""
+    eff_url=$(curl -fsSL -I -o /dev/null -w '%{url_effective}' -m 20 "https://github.com/$REPO/releases/latest" 2>/dev/null || true)
+    case "$eff_url" in
+      */releases/tag/*)
+        LATEST_TAG="${eff_url##*/releases/tag/}"
+        LATEST_TAG="${LATEST_TAG%%\?*}"
+        LATEST_TAG="${LATEST_TAG%%/*}"
+        ;;
+    esac
+  fi
+
+  if [ -z "$LATEST_TAG" ] && [ "$DRY_RUN" -eq 1 ]; then
+    warn "当前网络无法解析最新 tag，dry-run 使用占位版本 v0.0.0"
+    LATEST_TAG="v0.0.0"
+  fi
   if [ -z "$LATEST_TAG" ]; then die "解析 tag 失败：$(printf '%s' "$json" | head -3)"; fi
 
   LATEST_VER="${LATEST_TAG#v}"
@@ -351,6 +371,10 @@ download_release() {
   step "下载并校验"
 
   local base="https://github.com/$REPO/releases/download/$LATEST_TAG"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '  %s[dry-run]%s curl -fL %s/%s\n' "$C_D" "$C_0" "$base" "$ASSET"
+    return 0
+  fi
   TMPDIR_INSTALL=$(mktemp -d "${TMPDIR:-/tmp}/cg-install.XXXXXX")
   # shellcheck disable=SC2064
   trap "rm -rf '$TMPDIR_INSTALL'" EXIT
@@ -366,10 +390,6 @@ download_release() {
 
   # tarball
   dim "  下载 ${ASSET}（约 22MB）…"
-  if [ "$DRY_RUN" -eq 1 ]; then
-    printf '  %s[dry-run]%s curl -fL %s/%s\n' "$C_D" "$C_0" "$base" "$ASSET"
-    return 0
-  fi
   curl -fL --progress-bar -m 300 "$base/$ASSET" -o "$TMPDIR_INSTALL/$ASSET" \
     || die "下载失败。若在受限网络下，可手动下载后放到 $GW_DIR 再重跑"
 
@@ -558,20 +578,11 @@ oauth:
   auth-dir: "$GW_DIR/auth"
 EOF
 
-    # 模型别名：只写确定存在的
-    local has_claude=0 has_codex=0 has_xai=0
-    case " $PROVIDERS " in *" claude "*) has_claude=1 ;; esac
-    case " $PROVIDERS " in *" codex "*)  has_codex=1  ;; esac
-    case " $PROVIDERS " in *" xai "*)    has_xai=1    ;; esac
-
-    if [ "$has_claude" -eq 1 ] || [ "$has_codex" -eq 1 ] || [ "$has_xai" -eq 1 ]; then
-      cat <<'EOF'
+    # 预设三家短别名与 upstream 默认参数（无对应凭证时网关会忽略，在控制台接入后即可开箱即用）
+    cat <<'EOF'
   # 别名让客户端只填 opus / codex / grok，上游换版本时不用改客户端
   # fork: true 表示保留原始模型名，同时额外暴露别名
   model-alias:
-EOF
-      if [ "$has_claude" -eq 1 ]; then
-        cat <<'EOF'
     claude:
       - name: claude-opus-5-5
         alias: opus
@@ -585,28 +596,18 @@ EOF
         alias: haiku
         display-name: Haiku（最快最省）
         fork: true
-EOF
-      fi
-      if [ "$has_codex" -eq 1 ]; then
-        cat <<'EOF'
     codex:
-      # 装完后用 cg-models 查看真实模型名，再按需加别名
-      - name: gpt-5.1-codex
+      # 装完后用 cg-models 查看真实模型名，或导入凭证后由控制台自动校准
+      - name: gpt-5.3-codex
         alias: codex
         display-name: Codex（OpenAI）
         fork: true
-EOF
-      fi
-      if [ "$has_xai" -eq 1 ]; then
-        cat <<'EOF'
     xai:
       - name: grok-4.5
         alias: grok
         display-name: Grok（xAI）
         fork: true
 EOF
-      fi
-    fi
 
     cat <<EOF
 
@@ -616,19 +617,11 @@ upstream:
     disable-claude-cloak-mode: false
     session-date-pin-days: 7
     model-level-cooling: false
-EOF
-    if [ "$has_codex" -eq 1 ]; then
-      cat <<'EOF'
   codex:
     disable-codex-cloaking: false
-EOF
-    fi
-    if [ "$has_xai" -eq 1 ]; then
-      cat <<'EOF'
   xai:
     inject-x-search: false
 EOF
-    fi
 
     cat <<EOF
 
@@ -704,7 +697,7 @@ write_launchd_plists() {
         <string>$HOME</string>
     </dict>
     <key>ProcessType</key>
-    <string>Background</string>
+    <string>Standard</string>
 </dict>
 </plist>
 EOF
@@ -953,6 +946,10 @@ STATE_DIR="\$GW_DIR/.state"
 LOG="\$GW_DIR/logs/watchdog.log"
 SERVICE_LABEL="$LABEL_GW"
 SVC_MODE="${SVC_MODE:-launchd}"
+WATCHDOG_KEY="\${CG_WATCHDOG_KEY:-}"
+if [ -z "\$WATCHDOG_KEY" ] && [ -f "\$GW_DIR/config.yaml" ]; then
+  WATCHDOG_KEY=\$(sed -nE "s/^[[:space:]]*-[[:space:]]*[\"']?(sk-[^\"'#[:space:]]+).*/\1/p" "\$GW_DIR/config.yaml" | head -n 1)
+fi
 
 mkdir -p "\$STATE_DIR" "\$GW_DIR/logs"
 
@@ -1002,6 +999,20 @@ run_backup() {
   bash "\$GW_DIR/backup.sh" >/dev/null 2>&1 || log "WARN: backup.sh 执行异常"
 }
 
+# ---------- HTTP 探活 ----------
+probe_models() {
+  local c
+  if [ -n "\${WATCHDOG_KEY:-}" ]; then
+    c=\$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' -m 10 \
+      -H "Authorization: Bearer \$WATCHDOG_KEY" \
+      "http://127.0.0.1:\$PORT/v1/models" 2>/dev/null) || c="000"
+  else
+    c=\$(curl --noproxy '*' -s -o /dev/null -w '%{http_code}' -m 10 \
+      "http://127.0.0.1:\$PORT/v1/models" 2>/dev/null) || c="000"
+  fi
+  printf '%s' "\${c:-000}"
+}
+
 # ---------- 重启 ----------
 restart_service() {
   log "RESTART: 尝试重启 \$SERVICE_LABEL"
@@ -1012,7 +1023,15 @@ restart_service() {
   else
     systemctl --user restart cliproxyapi 2>/dev/null
   fi
-  sleep 6
+  local i=0
+  while [ \$i -lt 10 ]; do
+    if lsof -iTCP:"\$PORT" -sTCP:LISTEN >/dev/null 2>&1 || ss -lntH 2>/dev/null | grep -q ":\$PORT "; then
+      sleep 1
+      return 0
+    fi
+    sleep 1
+    i=\$((i + 1))
+  done
 }
 
 check_perms
@@ -1033,8 +1052,7 @@ if ! lsof -iTCP:"\$PORT" -sTCP:LISTEN >/dev/null 2>&1 && ! ss -lntH 2>/dev/null 
 fi
 
 # ---------- 2. HTTP 健康 ----------
-CODE=\$(curl -s -o /dev/null -w '%{http_code}' -m 10 -H "Authorization: Bearer \$WATCHDOG_KEY" \
-        "http://127.0.0.1:\$PORT/v1/models" 2>/dev/null) || CODE="000"
+CODE=\$(probe_models)
 
 case "\$CODE" in
   200)
@@ -1056,7 +1074,7 @@ case "\$CODE" in
     log "UNHEALTHY: \${CODE}（连续第 \$N 次）"
     if [ "\$N" -ge 3 ]; then
       restart_service
-      CODE2=\$(curl -s -o /dev/null -w '%{http_code}' -m 10 "http://127.0.0.1:\$PORT/v1/models" 2>/dev/null) || CODE2="000"
+      CODE2=\$(probe_models)
       log "AFTER-RESTART: \$CODE2"
       [ "\$CODE2" = "200" ] && { rm -f "\$STATE_DIR/fails"; notify "网关曾无响应，已重启恢复"; }
     fi
@@ -1644,7 +1662,7 @@ install_console() {
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>10</integer>
   <key>Umask</key><integer>63</integer>
-  <key>ProcessType</key><string>Background</string>
+  <key>ProcessType</key><string>Standard</string>
   <key>StandardOutPath</key><string>$GW_DIR/logs/console.log</string>
   <key>StandardErrorPath</key><string>$GW_DIR/logs/console.log</string>
   <key>EnvironmentVariables</key>
@@ -1739,6 +1757,8 @@ write_quickstart() {
 
 ## 客户端 Key
 
+| 设备 | Key |
+|---|---|
 EOF
     local i=1 k
     for k in ${GEN_KEYS[@]+"${GEN_KEYS[@]}"}; do
@@ -1755,13 +1775,13 @@ EOF
 
 | 客户端 | 协议 | Base URL | 模型 |
 |---|---|---|---|
-| Claude Code | Anthropic | `http://127.0.0.1:$PORT` | opus |
-| dsh（自定义模型 API） | Anthropic Messages | `http://${LAN_IP:-127.0.0.1}:$PORT` | opus |
-| Chatbox / Cherry Studio | OpenAI 兼容 | `${base}/v1` | opus |
-| Cline / Roo / Continue | OpenAI 兼容 | `${base}/v1` | opus |
-| Trae | OpenAI 兼容 | `${base}/v1` | opus |
-| OpenAI Python SDK | OpenAI | `${base}/v1` | opus |
-| Anthropic Python SDK | Anthropic | `http://127.0.0.1:$PORT` | opus |
+| Claude Code | Anthropic | \`http://127.0.0.1:$PORT\` | opus |
+| dsh（自定义模型 API） | Anthropic Messages | \`http://${LAN_IP:-127.0.0.1}:$PORT\` | opus |
+| Chatbox / Cherry Studio | OpenAI 兼容 | \`${base}/v1\` | opus |
+| Cline / Roo / Continue | OpenAI 兼容 | \`${base}/v1\` | opus |
+| Trae | OpenAI 兼容 | \`${base}/v1\` | opus |
+| OpenAI Python SDK | OpenAI | \`${base}/v1\` | opus |
+| Anthropic Python SDK | Anthropic | \`http://127.0.0.1:$PORT\` | opus |
 
 **必改：最大回复长度设 4000。** 模型会先思考，思考也算 token；
 设 30 会得到一个空回答，设 60 会截半句。

@@ -9,6 +9,7 @@ Claude Gateway Console —— 本地可视化控制台（后端）
 """
 from __future__ import annotations
 
+import base64
 import glob
 import json
 import os
@@ -18,17 +19,19 @@ import select
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import traceback
 import urllib.parse
-from datetime import datetime, timedelta, timezone, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 GW = os.path.expanduser(os.environ.get("CG_DIR", "~/claude-gateway"))
@@ -49,6 +52,37 @@ if os.environ.get("CG_TZ"):
         pass
 
 _CACHE: dict = {}
+_CACHE_LOCK = threading.Lock()
+_KEY_LOCKS: dict = {}
+_DIRECT_OPENER = build_opener(ProxyHandler({}))
+
+
+def _cached_call(key, ttl, fn):
+    now = time.time()
+    with _CACHE_LOCK:
+        hit = _CACHE.get(key)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        klock = _KEY_LOCKS.setdefault(key, threading.Lock())
+    with klock:
+        now2 = time.time()
+        with _CACHE_LOCK:
+            hit2 = _CACHE.get(key)
+            if hit2 and now2 - hit2[0] < ttl:
+                return hit2[1]
+        val = fn()
+        with _CACHE_LOCK:
+            _CACHE[key] = (time.time(), val)
+        return val
+
+
+def _invalidate_cache(*keys):
+    with _CACHE_LOCK:
+        if not keys:
+            _CACHE.clear()
+        else:
+            for k in keys:
+                _CACHE.pop(k, None)
 
 
 # ---------------------------------------------------------------- 基础工具
@@ -115,12 +149,9 @@ def parse_config():
 
     keys = re.findall(r'-\s*"(sk-[^"]+)"', t) or re.findall(r"-\s*'(sk-[^']+)'", t)
     aliases = re.findall(r'^\s*alias:\s*"?([A-Za-z0-9._\-]+)"?\s*$', t, re.M)
-    # 每个 channel 下的别名
-    alias_by_channel = {}
-    for ch in ("claude", "codex", "xai"):
-        blk = cfg_section(t, ch)
-        if blk:
-            alias_by_channel[ch] = re.findall(r'^\s*alias:\s*"?([A-Za-z0-9._\-]+)"?\s*$', blk, re.M)
+    al_map = aliases_read()
+    alias_by_channel = {ch: [x["alias"] for x in items if x.get("alias")]
+                        for ch, items in al_map.items() if items}
 
     return {
         "config_version": _first(r"^config-version:\s*(\S+)", t, "?"),
@@ -142,7 +173,13 @@ def mask_key(k):
 
 
 # ---------------------------------------------------------------- 进程/端口
-def port_pid(port):
+def port_pid(port, hint_pid=None):
+    if hint_pid:
+        rc, out, _ = sh(["lsof", "-nP", "-a", "-p", str(hint_pid), f"-iTCP:{port}", "-sTCP:LISTEN"], timeout=4)
+        for line in out.splitlines()[1:]:
+            parts = line.split()
+            if len(parts) > 1 and parts[1].isdigit():
+                return int(parts[1])
     rc, out, _ = sh(["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"])
     for line in out.splitlines()[1:]:
         parts = line.split()
@@ -151,31 +188,95 @@ def port_pid(port):
     return None
 
 
-def launch_status(label):
-    rc, out, _ = sh(["launchctl", "list"])
+def _tcp_listening(port: int):
+    """进程内毫秒级检测 127.0.0.1:port 是否监听；沙箱受限时返回 None 走 lsof 兜底。"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.25)
+    try:
+        s.connect(("127.0.0.1", int(port)))
+        return True
+    except (ConnectionRefusedError, TimeoutError):
+        return False
+    except OSError as e:
+        if e.errno in (1, 13, 22):
+            return None
+        return False
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+
+def _launch_list_map(labels):
+    """一次 launchctl list 批量解析多个 label，避免重复拉起子进程。"""
+    res = {lb: {"loaded": False, "pid": None, "last_exit": None} for lb in labels}
+    _, out, _ = sh(["launchctl", "list"], timeout=4)
     for line in out.splitlines():
         f = line.split("\t")
-        if len(f) >= 3 and f[2].strip() == label:
-            pid = int(f[0]) if f[0].strip().isdigit() else None
-            return {"loaded": True, "pid": pid, "last_exit": f[1].strip()}
-    return {"loaded": False, "pid": None, "last_exit": None}
+        if len(f) >= 3:
+            lb = f[2].strip()
+            if lb in res:
+                pid = int(f[0]) if f[0].strip().isdigit() else None
+                res[lb] = {"loaded": True, "pid": pid, "last_exit": f[1].strip()}
+    return res
+
+
+def launch_status(label):
+    return _launch_list_map((label,))[label]
 
 
 def proc_etime(pid):
     if not pid:
         return ""
-    _, out, _ = sh(["ps", "-o", "etime=", "-p", str(pid)])
+    _, out, _ = sh(["ps", "-o", "etime=", "-p", str(pid)], timeout=3)
     return out.strip()
 
 
 def proc_rss(pid):
     if not pid:
         return None
-    _, out, _ = sh(["ps", "-o", "rss=", "-p", str(pid)])
+    _, out, _ = sh(["ps", "-o", "rss=", "-p", str(pid)], timeout=3)
     try:
         return round(int(out.strip()) / 1024, 1)
     except Exception:
         return None
+
+
+def _proc_stats(pid):
+    """单次 ps 同时获取 etime 与 rss_mb。"""
+    if not pid:
+        return "", None
+    _, out, _ = sh(["ps", "-o", "etime=,rss=", "-p", str(pid)], timeout=3)
+    parts = out.strip().split()
+    if not parts:
+        return "", None
+    etime = parts[0]
+    rss_mb = None
+    if len(parts) > 1:
+        try:
+            rss_mb = round(int(parts[1]) / 1024, 1)
+        except Exception:
+            rss_mb = None
+    return etime, rss_mb
+
+
+def _runtime_snapshot(port):
+    """合并 launchctl + 进程内端口探活 + 单进程 ps 为短缓存快照（TTL 4.0s）。"""
+    def _collect():
+        lm = _launch_list_map((LABEL, LABEL_WD))
+        la, wd = lm[LABEL], lm[LABEL_WD]
+        listening = _tcp_listening(port)
+        if listening is True and la["pid"]:
+            pid = la["pid"]
+        elif listening is False:
+            pid = None
+        else:
+            pid = port_pid(port, hint_pid=la["pid"])
+        target_pid = pid or la["pid"]
+        uptime, rss_mb = _proc_stats(target_pid)
+        return {"pid": pid, "la": la, "wd": wd, "uptime": uptime, "rss_mb": rss_mb}
+    return _cached_call(f"rt:{port}", 4.0, _collect)
 
 
 def gateway_version():
@@ -226,6 +327,67 @@ def read_auth_files():
     return items
 
 
+CODEX_AUTH_PATH = os.path.expanduser("~/.codex/auth.json")
+
+
+def _jwt_claims(tok: str) -> dict:
+    """解码 JWT payload（不验证签名，仅提取非敏感元信息）。"""
+    if not tok or "." not in str(tok):
+        return {}
+    parts = str(tok).split(".")
+    if len(parts) < 2 or not parts[1]:
+        return {}
+    try:
+        pad = "=" * (-len(parts[1]) % 4)
+        raw = base64.urlsafe_b64decode(parts[1] + pad)
+        obj = json.loads(raw.decode("utf-8", "replace"))
+        return obj if isinstance(obj, dict) else {}
+    except Exception:
+        return {}
+
+
+def local_codex_status() -> dict:
+    """探测本机 ~/.codex/auth.json 状态（不暴露任何 token 内容）。"""
+    def _collect():
+        p = os.path.expanduser(CODEX_AUTH_PATH)
+        if not os.path.exists(p):
+            return {"available": False}
+        try:
+            a = json.loads(read_text(p) or "{}")
+        except Exception as e:  # noqa: BLE001
+            return {"available": False, "error": f"解析失败：{e}"}
+        if not isinstance(a, dict):
+            return {"available": False, "error": "格式不是 JSON 对象"}
+        t = a.get("tokens") if isinstance(a.get("tokens"), dict) else a
+        acc = (t.get("access_token") or "") if isinstance(t, dict) else ""
+        if not acc:
+            return {"available": False, "error": "缺少 access_token"}
+        id_c = _jwt_claims(t.get("id_token") or "")
+        acc_c = _jwt_claims(acc)
+        acc_auth = acc_c.get("https://api.openai.com/auth") or {}
+        id_auth = id_c.get("https://api.openai.com/auth") or {}
+        acc_prof = acc_c.get("https://api.openai.com/profile") or {}
+        email = (id_c.get("email") or acc_prof.get("email") or t.get("email") or a.get("email") or "")
+        plan = (acc_auth.get("chatgpt_plan_type") or id_auth.get("chatgpt_plan_type") or "")
+        exp = acc_c.get("exp")
+        remain_sec = None
+        if isinstance(exp, (int, float)):
+            remain_sec = int(exp - time.time())
+        has_refresh = bool(t.get("refresh_token"))
+        imported = any(x.get("type") == "codex" and not x.get("disabled") for x in read_auth_files())
+        return {
+            "available": True,
+            "source": "~/.codex/auth.json",
+            "email": str(email or ""),
+            "plan": str(plan or ""),
+            "remain_sec": remain_sec,
+            "expired": bool(remain_sec is not None and remain_sec <= 0),
+            "has_refresh": has_refresh,
+            "imported": imported,
+        }
+    return _cached_call("local_codex", 10, _collect)
+
+
 # ---------------------------------------------------------------- 网关 API
 def gw_call(path, payload=None, timeout=150):
     cfg = parse_config()
@@ -238,35 +400,32 @@ def gw_call(path, payload=None, timeout=150):
         headers["Content-Type"] = "application/json"
     t0 = time.time()
     req = Request(url, data=data, headers=headers, method="POST" if data else "GET")
-    with urlopen(req, timeout=timeout) as r:
+    with _DIRECT_OPENER.open(req, timeout=timeout) as r:
         body = r.read().decode("utf-8", "replace")
     return json.loads(body), round((time.time() - t0) * 1000)
 
 
 def fetch_models():
-    cache = _CACHE.get("models")
-    if cache and time.time() - cache[0] < 60:
-        return cache[1]
-    try:
-        d, ms = gw_call("/v1/models", timeout=15)
-        ids = sorted({m.get("id") for m in d.get("data", []) if m.get("id")})
-        owners = {m.get("id"): m.get("owned_by") for m in d.get("data", []) if m.get("id")}
-        out = {"ok": True, "models": ids, "owners": owners, "ms": ms}
-    except Exception as e:  # noqa: BLE001
-        cfg = parse_config()
-        key = cfg["keys"][0] if cfg["keys"] else ""
-        url = f"http://127.0.0.1:{cfg['port']}/v1/models"
+    def _fetch():
         try:
-            t0 = time.time()
-            req = Request(url, headers={"x-api-key": key})
-            with urlopen(req, timeout=15) as r:
-                d = json.loads(r.read().decode("utf-8", "replace"))
+            d, ms = gw_call("/v1/models", timeout=3)
             ids = sorted({m.get("id") for m in d.get("data", []) if m.get("id")})
-            out = {"ok": True, "models": ids, "ms": round((time.time() - t0) * 1000)}
-        except Exception as e2:  # noqa: BLE001
-            out = {"ok": False, "models": [], "error": f"{type(e2).__name__}: {e2}"}
-    _CACHE["models"] = (time.time(), out)
-    return out
+            owners = {m.get("id"): m.get("owned_by") for m in d.get("data", []) if m.get("id")}
+            return {"ok": True, "models": ids, "owners": owners, "ms": ms}
+        except Exception:  # noqa: BLE001
+            cfg = parse_config()
+            key = cfg["keys"][0] if cfg["keys"] else ""
+            url = f"http://127.0.0.1:{cfg['port']}/v1/models"
+            try:
+                t0 = time.time()
+                req = Request(url, headers={"x-api-key": key})
+                with _DIRECT_OPENER.open(req, timeout=3) as r:
+                    d = json.loads(r.read().decode("utf-8", "replace"))
+                ids = sorted({m.get("id") for m in d.get("data", []) if m.get("id")})
+                return {"ok": True, "models": ids, "ms": round((time.time() - t0) * 1000)}
+            except Exception as e2:  # noqa: BLE001
+                return {"ok": False, "models": [], "error": f"{type(e2).__name__}: {e2}"}
+    return _cached_call("models", 60, _fetch)
 
 
 def probe_model(model, prompt="说一句「链路正常」。", max_tokens=256):
@@ -316,8 +475,9 @@ def tail_lines(path, n=80):
 
 
 def parse_events(n=40):
-    """读 watchdog / backup 日志，连续重复文本合并计数。"""
+    """读 watchdog / backup 日志，按时间排序后连续重复文本合并计数。"""
     raw = []
+    seq = 0
     for line in tail_lines(os.path.join(LOGS, "watchdog.log"), 400):
         if not line.strip():
             continue
@@ -331,18 +491,23 @@ def parse_events(n=40):
             kind = "bad"
         if "warn" in low or "fail" in low:
             kind = "warn" if kind == "ok" else kind
-        raw.append({"t": ts, "src": "watchdog", "kind": kind, "text": msg})
+        seq += 1
+        raw.append((ts or "", seq, {"t": ts, "src": "watchdog", "kind": kind, "text": msg}))
     for line in tail_lines(os.path.join(LOGS, "backup.log"), 60):
         if not line.strip():
             continue
         m = re.match(r"^\[([^\]]+)\]\s*(.*)$", line)
         ts, msg = (m.group(1), m.group(2)) if m else ("", line)
-        raw.append({"t": ts, "src": "backup",
-                    "kind": "ok" if "OK" in msg else "warn", "text": msg})
+        seq += 1
+        raw.append((ts or "", seq, {"t": ts, "src": "backup",
+                                    "kind": "ok" if "OK" in msg else "warn", "text": msg}))
+
+    # 按时间升序排列再合并连续相同事件，避免早前的 backup 事件压在最新 watchdog 前面
+    raw.sort(key=lambda item: (item[0], item[1]))
 
     # 合并连续相同（同 src + 同 text）的记录
     merged = []
-    for e in raw:
+    for _, _, e in raw:
         last = merged[-1] if merged else None
         if last and last["src"] == e["src"] and last["text"] == e["text"]:
             last["n"] = last.get("n", 1) + 1
@@ -394,9 +559,31 @@ def scan_errors(limit=40):
 
 LOG_RE = re.compile(
     r'\[([\d\-: ]+)\]\s+\[[^\]]*\]\s+\[[^\]]*\]\s+\[[^\]]*\]\s+'
-    r'(\d{3})\s*\|\s*([\d.]+)\s*s?\s*\|\s*(\S+)\s*\|\s*(\w+)\s+"([^"]*)"')
+    r'(\d{3})\s*\|\s*([\d.a-zA-Zµμ]+)\s*\|\s*(\S+)\s*\|\s*(\w+)\s+"([^"]*)"')
 
 CHAT_PATHS = ("/v1/messages", "/v1/chat/completions", "/v1/responses")
+
+
+def _parse_dur_sec(raw: str) -> float:
+    """解析 Gin 日志耗时（支持 ns / µs / μs / us / ms / s / 1m2.3s）。"""
+    s = (raw or "").strip()
+    if not s:
+        return 0.0
+    m_min = re.fullmatch(r'(?:(\d+)h)?(?:(\d+)m)?([\d.]+)s', s)
+    if m_min and (m_min.group(1) or m_min.group(2)):
+        hrs = int(m_min.group(1) or 0)
+        mins = int(m_min.group(2) or 0)
+        return round(hrs * 3600 + mins * 60 + float(m_min.group(3)), 6)
+    for suf, scale in (("ms", 1e-3), ("µs", 1e-6), ("μs", 1e-6), ("us", 1e-6), ("ns", 1e-9), ("s", 1.0)):
+        if s.endswith(suf):
+            try:
+                return round(float(s[:-len(suf)]) * scale, 6)
+            except ValueError:
+                return 0.0
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
 
 
 
@@ -562,8 +749,167 @@ def aliases_write(data):
         _write_cfg_raw(out)
     except Exception as e:
         return {"ok": False, "error": "写入失败：%s" % e}
+    _invalidate_cache("models")
     r = restart_gateway(30)
     return {"ok": True, "changed": True, "restart": r}
+
+
+DEFAULT_CHANNEL_ALIASES = {
+    "claude": [
+        {"name": "claude-opus-5-5", "alias": "opus", "display_name": "Opus（最强）", "fork": True},
+        {"name": "claude-sonnet-5-5", "alias": "sonnet", "display_name": "Sonnet（均衡）", "fork": True},
+        {"name": "claude-haiku-5-5", "alias": "haiku", "display_name": "Haiku（最快最省）", "fork": True},
+    ],
+    "codex": [
+        {"name": "gpt-5.3-codex", "alias": "codex", "display_name": "Codex（OpenAI）", "fork": True},
+    ],
+    "xai": [
+        {"name": "grok-4.5", "alias": "grok", "display_name": "Grok（xAI）", "fork": True},
+    ],
+    "antigravity": [
+        {"name": "gemini-2.5-pro", "alias": "gemini", "display_name": "Gemini Pro", "fork": True},
+    ],
+}
+
+
+def _pick_preferred_model(platform: str, fallback: str, prefer_models=None) -> str:
+    models = [str(m) for m in (prefer_models or []) if m]
+    if not models:
+        return fallback
+    if platform == "codex":
+        for cand in ("gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex", "gpt-5-codex"):
+            if cand in models:
+                return cand
+        for m in models:
+            if "codex" in m:
+                return m
+        for m in models:
+            if m.startswith("gpt-"):
+                return m
+    elif platform == "xai":
+        for cand in ("grok-4.5", "grok-4"):
+            if cand in models:
+                return cand
+        for m in models:
+            if m.startswith("grok-"):
+                return m
+    elif platform == "antigravity":
+        for cand in ("gemini-2.5-pro", "gemini-3-pro-preview"):
+            if cand in models:
+                return cand
+        for m in models:
+            if m.startswith("gemini-"):
+                return m
+    return fallback
+
+
+def ensure_channel_defaults(platform: str, prefer_models=None) -> dict:
+    """为首次接入的平台自动补齐默认 model-alias 与 upstream 子段（绝不覆盖已有条目）。"""
+    if platform not in DEFAULT_CHANNEL_ALIASES:
+        return {"ok": True, "changed": False}
+    text = read_text(CFG_PATH) or ""
+    if not text.strip():
+        return {"ok": False, "changed": False, "error": "config.yaml 为空"}
+
+    cur_aliases = aliases_read()
+    changed_parts = []
+
+    if not cur_aliases.get(platform):
+        items = []
+        for tpl in DEFAULT_CHANNEL_ALIASES[platform]:
+            it = dict(tpl)
+            it["name"] = _pick_preferred_model(platform, tpl["name"], prefer_models)
+            items.append(it)
+        cur_aliases[platform] = items
+
+        lines = text.split("\n")
+        start = next((i for i, l in enumerate(lines) if l.strip() == "model-alias:" and l.startswith("  ")), None)
+        if start is not None:
+            end = len(lines)
+            for j in range(start + 1, len(lines)):
+                l = lines[j]
+                if l and not l.startswith(" ") and not l.lstrip().startswith("#"):
+                    end = j
+                    break
+                if l.startswith("  ") and not l.startswith("   ") and not l.strip().startswith("#"):
+                    end = j
+                    break
+            new_blk = [lines[start]]
+            for ch in ALIAS_CHANNELS:
+                ch_items = cur_aliases.get(ch) or []
+                new_blk.append("    %s:" % ch)
+                if not ch_items:
+                    new_blk.append("      []")
+                else:
+                    new_blk.extend(_alias_block(ch_items))
+            text = "\n".join(lines[:start] + new_blk + lines[end:])
+            changed_parts.append("model-alias")
+        else:
+            oauth_idx = next((i for i, l in enumerate(lines) if re.match(r"^oauth:\s*$", l)), None)
+            if oauth_idx is not None:
+                ins = len(lines)
+                for j in range(oauth_idx + 1, len(lines)):
+                    l = lines[j]
+                    if l and not l.startswith(" ") and not l.lstrip().startswith("#"):
+                        ins = j
+                        break
+                new_blk = ["  model-alias:"]
+                for ch in ALIAS_CHANNELS:
+                    ch_items = cur_aliases.get(ch) or []
+                    new_blk.append("    %s:" % ch)
+                    if not ch_items:
+                        new_blk.append("      []")
+                    else:
+                        new_blk.extend(_alias_block(ch_items))
+                text = "\n".join(lines[:ins] + new_blk + lines[ins:])
+                changed_parts.append("model-alias")
+
+    # 按需补充 upstream.<platform> 默认子段
+    upstream_tpl = {
+        "codex": ["  codex:", "    disable-codex-cloaking: false"],
+        "xai": ["  xai:", "    inject-x-search: false"],
+    }.get(platform)
+    if upstream_tpl:
+        # 从待写入的 text 检查是否已有 upstream.<platform>
+        u_lines = text.split("\n")
+        u_start = next((i for i, l in enumerate(u_lines) if re.match(r"^upstream:\s*$", l)), None)
+        if u_start is not None:
+            u_end = len(u_lines)
+            has_sub = False
+            for j in range(u_start + 1, len(u_lines)):
+                l = u_lines[j]
+                if l and not l.startswith(" ") and not l.lstrip().startswith("#"):
+                    u_end = j
+                    break
+                if l.startswith("  " + platform + ":"):
+                    has_sub = True
+            if not has_sub:
+                # 插在尾部空行之前
+                ins = u_end
+                while ins > u_start + 1 and not u_lines[ins - 1].strip():
+                    ins -= 1
+                text = "\n".join(u_lines[:ins] + upstream_tpl + u_lines[ins:])
+                changed_parts.append("upstream." + platform)
+        else:
+            obs_idx = next((i for i, l in enumerate(u_lines) if re.match(r"^observability:\s*$", l)), len(u_lines))
+            add_blk = ["upstream:"] + upstream_tpl + [""]
+            text = "\n".join(u_lines[:obs_idx] + add_blk + u_lines[obs_idx:])
+            changed_parts.append("upstream." + platform)
+
+    if not changed_parts:
+        return {"ok": True, "changed": False}
+
+    orig = read_text(CFG_PATH) or ""
+    try:
+        bak_path = CFG_PATH + ".bak-auto-" + datetime.now().strftime("%Y%m%d%H%M%S")
+        with open(bak_path, "w", encoding="utf-8") as bf:
+            bf.write(orig)
+        os.chmod(bak_path, 0o600)
+        _write_cfg_raw(text)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "changed": False, "error": f"写入配置失败：{e}"}
+    _invalidate_cache("models")
+    return {"ok": True, "changed": True, "parts": changed_parts}
 
 
 BACKUP_DIR = os.path.expanduser("~/claude-gateway-backups")
@@ -600,18 +946,21 @@ def backup_restore(name, password=""):
         return {"ok": False, "error": "备份不存在"}
     pw = (password or "").strip() or keychain_password()
     if not pw:
-        return {"ok": False, "error": "没有可用口令：钥匙串里没找到，也没有手动输入"}
+        return {"ok": False, "need_password": True,
+                "error": "没有可用口令：钥匙串里没找到，也没有手动输入"}
     tmp = tempfile.mkdtemp(prefix="restore-")
     try:
         rc, out, err = sh(["bash", "-c",
-            "printf '%s\\n' \"$PW\" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 "
+            "printf '%%s\\n' \"$PW\" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 "
             "-pass stdin -in %s -out %s" % (shlex.quote(path), shlex.quote(os.path.join(tmp, "a.tar.gz")))],
             60, env={"PW": pw})
         if rc != 0:
-            return {"ok": False, "error": "解密失败（口令不对或文件损坏）"}
+            return {"ok": False, "bad_password": True,
+                    "error": "解密失败（口令不对或文件损坏）"}
         rc2, out2, err2 = sh(["tar", "tzf", os.path.join(tmp, "a.tar.gz")], 30)
         if rc2 != 0:
-            return {"ok": False, "error": "解密出来的不是有效归档 —— 口令不对"}
+            return {"ok": False, "bad_password": True,
+                    "error": "解密出来的不是有效归档 —— 口令不对"}
         rc3, _, err3 = sh(["tar", "xzf", os.path.join(tmp, "a.tar.gz"), "-C", tmp], 30)
         if rc3 != 0:
             return {"ok": False, "error": "解包失败：%s" % err3.strip()[:80]}
@@ -627,9 +976,10 @@ def backup_restore(name, password=""):
         for f in os.listdir(src):
             if f.endswith(".json"):
                 shutil.copy2(os.path.join(src, f), os.path.join(AUTH_DIR, f))
-                os.chmod(os.path.join(AUTH, f), 0o600)
+                os.chmod(os.path.join(AUTH_DIR, f), 0o600)
                 n += 1
         os.chmod(AUTH_DIR, 0o700)
+        _invalidate_cache()
         r = restart_gateway(30)
         return {"ok": True, "restored": n, "restart": r}
     finally:
@@ -637,48 +987,47 @@ def backup_restore(name, password=""):
 
 
 def log_stats(max_lines=1500):
-    cache = _CACHE.get("logstats")
-    if cache and time.time() - cache[0] < 20:
-        return cache[1]
-    rows = []
-    for line in tail_lines(os.path.join(LOGS, "main.log"), max_lines):
-        m = LOG_RE.search(line)
-        if not m:
-            continue
-        try:
-            sec = float(m.group(3))
-        except ValueError:
-            sec = 0.0
-        rows.append({"t": m.group(1), "code": m.group(2), "sec": sec,
-                     "ip": m.group(4), "method": m.group(5), "path": m.group(6)})
-    codes, paths, durs = {}, {}, []
-    for r in rows:
-        codes[r["code"]] = codes.get(r["code"], 0) + 1
-        paths[r["path"]] = paths.get(r["path"], 0) + 1
-        if r["path"] in CHAT_PATHS:
-            durs.append(r["sec"])
-    durs.sort()
+    def _compute():
+        rows = []
+        for line in tail_lines(os.path.join(LOGS, "main.log"), max_lines):
+            m = LOG_RE.search(line)
+            if not m:
+                continue
+            rows.append({"t": m.group(1), "code": m.group(2), "sec": _parse_dur_sec(m.group(3)),
+                         "ip": m.group(4), "method": m.group(5), "path": m.group(6)})
+        codes, paths, durs, chat_ok = {}, {}, [], 0
+        for r in rows:
+            codes[r["code"]] = codes.get(r["code"], 0) + 1
+            paths[r["path"]] = paths.get(r["path"], 0) + 1
+            if r["path"] in CHAT_PATHS:
+                durs.append(r["sec"])
+                if r["code"].startswith("2"):
+                    chat_ok += 1
+        durs.sort()
 
-    def pct(p):
-        if not durs:
-            return None
-        return round(durs[min(len(durs) - 1, int(len(durs) * p))], 2)
+        def pct(p):
+            if not durs:
+                return None
+            return round(durs[min(len(durs) - 1, int(len(durs) * p))], 2)
 
-    total = len(rows)
-    okn = sum(v for k, v in codes.items() if k.startswith("2"))
-    out = {
-        "sampled": total,
-        "codes": dict(sorted(codes.items())),
-        "paths": dict(sorted(paths.items(), key=lambda kv: -kv[1])[:6]),
-        "chat_calls": len(durs),
-        "p50": pct(0.5),
-        "p95": pct(0.95),
-        "max": round(durs[-1], 2) if durs else None,
-        "ok_rate": round(okn / total * 100) if total else None,
-        "last_at": rows[-1]["t"] if rows else "",
-    }
-    _CACHE["logstats"] = (time.time(), out)
-    return out
+        total = len(rows)
+        okn = sum(v for k, v in codes.items() if k.startswith("2"))
+        return {
+            "sampled": total,
+            "codes": dict(sorted(codes.items())),
+            "paths": dict(sorted(paths.items(), key=lambda kv: -kv[1])[:6]),
+            "chat_calls": len(durs),
+            "chat_ok_rate": round(chat_ok / len(durs) * 100) if durs else None,
+            "p50": pct(0.5),
+            "p95": pct(0.95),
+            "max": round(durs[-1], 2) if durs else None,
+            "ok_rate": round(okn / total * 100) if total else None,
+            "last_at": rows[-1]["t"] if rows else "",
+        }
+
+    if max_lines == 1500:
+        return _cached_call("logstats", 5.0, _compute)
+    return _compute()
 
 
 # ---------------------------------------------------------------- 汇总
@@ -1067,6 +1416,7 @@ def gemini_set(keys):
         lines = lines[:idx] + block + [""] + lines[idx:]
 
     _write_cfg_raw("\n".join(lines))
+    _invalidate_cache()
     return {"ok": True, "count": len(keys),
             "restart": restart_gateway()}
 
@@ -1074,31 +1424,36 @@ def gemini_set(keys):
 def overview():
     cfg = parse_config()
     port = cfg["port"]
-    pid = port_pid(port)
-    la = launch_status(LABEL)
-    wd = launch_status(LABEL_WD)
+    snap = _runtime_snapshot(port)
+    pid, la, wd = snap["pid"], snap["la"], snap["wd"]
     models = fetch_models()
-    alias_map = {}
-    for ch, als in cfg.get("alias_by_channel", {}).items():
-        for a in als:
-            alias_map[a] = ch
+    _, _, key_items = _keys_block(_read_cfg_raw().split("\n"))
+    key_labels = {k: lab for k, lab in key_items}
+    win_u, hist_u, ev_list, err_list = _cached_call(
+        f"ov_diag:{LOGS}",
+        3.5,
+        lambda: (window_usage(), hour_hist(), parse_events(30), scan_errors()),
+    )
     return {
         "now": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "usage": {"window": window_usage(), "hist": hour_hist()},
+        "usage": {"window": win_u, "hist": hist_u},
         "quota": quota_cached(),
+        "ui_auth": {"enabled": auth_enabled()},
+        "local_creds": {"codex": local_codex_status()},
         "gateway": {
             "alive": bool(pid),
             "pid": pid if pid else la["pid"],
             "port": port,
             "host": cfg["host"],
-            "uptime": proc_etime(pid or la["pid"]),
-            "rss_mb": proc_rss(pid or la["pid"]),
+            "uptime": snap["uptime"],
+            "rss_mb": snap["rss_mb"],
             "version": gateway_version(),
             "config_version": cfg["config_version"],
         },
         "launchd": {"gateway": la, "watchdog": wd, "labels": [LABEL, LABEL_WD]},
         "config": {
-            "keys": [{"masked": mask_key(k), "raw_last4": k[-4:]} for k in cfg["keys"]],
+            "host": cfg["host"],
+            "keys": [{"masked": mask_key(k), "raw_last4": k[-4:], "label": key_labels.get(k, "")} for k in cfg["keys"]],
             "key_count": len(cfg["keys"]),
             "proxy_url": cfg["proxy_url"] or "（直连）",
             "retry": cfg["retry"],
@@ -1110,8 +1465,8 @@ def overview():
         },
         "auth": read_auth_files(),
         "models": models,
-        "events": parse_events(30),
-        "issues": scan_errors(),
+        "events": ev_list,
+        "issues": err_list,
         "logs": log_stats(),
         "lan_ip": lan_ip(),
     }
@@ -1120,48 +1475,81 @@ def overview():
 TS_BIN = "/usr/local/bin/tailscale"
 
 
+def _find_ts_bin():
+    if os.path.isabs(TS_BIN) and os.path.exists(TS_BIN):
+        return TS_BIN
+    return shutil.which("tailscale") or ""
+
+
+def _has_ts_daemon():
+    env_sock = os.environ.get("TS_SOCKET", "").strip()
+    if env_sock and os.path.exists(env_sock):
+        return True
+    if os.path.exists("/var/run/tailscaled.socket"):
+        return True
+    if glob.glob(os.path.expanduser("~/Library/Group Containers/*.io.tailscale.ipn.macos/sameuserproof-*")):
+        return True
+    return False
+
+
 def tailscale_ip():
     """Tailscale 的 100.x 地址。固定不变，比局域网 IP 可靠得多。"""
-    for b in (TS_BIN, "tailscale"):
-        rc, out, _ = sh([b, "ip", "-4"], timeout=5)
-        if rc == 0:
-            v = out.strip().splitlines()
-            if v and v[0].startswith("100."):
-                return v[0]
+    if not _has_ts_daemon():
+        return ""
+    b = _find_ts_bin()
+    if not b:
+        return ""
+    rc, out, _ = sh([b, "ip", "-4"], timeout=0.5)
+    if rc == 0:
+        v = out.strip().splitlines()
+        if v and v[0].startswith("100."):
+            return v[0]
     return ""
 
 
 def tailscale_dns():
     """MagicDNS 全名（可能被 Clash 的 fake-ip 劫持，仅作展示）。"""
-    for b in (TS_BIN, "tailscale"):
-        rc, out, _ = sh([b, "status", "--json"], timeout=6)
-        if rc == 0:
-            try:
-                return (json.loads(out).get("Self") or {}).get("DNSName", "").rstrip(".")
-            except Exception:
-                pass
+    if not _has_ts_daemon():
+        return ""
+    b = _find_ts_bin()
+    if not b:
+        return ""
+    rc, out, _ = sh([b, "status", "--json"], timeout=3)
+    if rc == 0:
+        try:
+            return (json.loads(out).get("Self") or {}).get("DNSName", "").rstrip(".")
+        except Exception:
+            pass
     return ""
 
 
 def tailscale_state():
-    for b in (TS_BIN, "tailscale"):
-        rc, out, _ = sh([b, "status", "--json"], timeout=6)
-        if rc == 0:
-            try:
-                d = json.loads(out)
-                return d.get("BackendState", "")
-            except Exception:
-                pass
+    if not _has_ts_daemon():
+        return ""
+    b = _find_ts_bin()
+    if not b:
+        return ""
+    rc, out, _ = sh([b, "status", "--json"], timeout=3)
+    if rc == 0:
+        try:
+            d = json.loads(out)
+            return d.get("BackendState", "")
+        except Exception:
+            pass
     return ""
 
 
-def lan_ip():
-    """对外地址：优先 Tailscale 固定 IP，退回局域网 IP。"""
+def _lan_ip_uncached():
     ts = tailscale_ip()
     if ts:
         return ts
-    _, out, _ = sh(["ipconfig", "getifaddr", "en0"])
+    _, out, _ = sh(["ipconfig", "getifaddr", "en0"], timeout=2)
     return out.strip()
+
+
+def lan_ip():
+    """对外地址：优先 Tailscale 固定 IP，退回局域网 IP（TTL 60s）。"""
+    return _cached_call("lan_ip", 60, _lan_ip_uncached)
 
 
 # ---------------------------------------------------------------- 服务控制
@@ -1179,6 +1567,7 @@ def service_action(action):
     time.sleep(2.5)
     cfg = parse_config()
     pid = port_pid(cfg["port"])
+    _invalidate_cache(f"rt:{cfg['port']}", "models")
     return {"ok": rc == 0 and bool(pid), "rc": rc,
             "out": (out or "").strip()[:400], "err": (err or "").strip()[:400],
             "pid": pid}
@@ -1187,9 +1576,18 @@ def service_action(action):
 def run_backup():
     path = os.path.join(GW, "backup.sh")
     if not os.path.exists(path):
-        return {"ok": False, "error": "backup.sh 不存在"}
+        return {"ok": False, "file": "", "error": "backup.sh 不存在"}
     rc, out, err = sh(["bash", path], timeout=60)
-    return {"ok": rc == 0, "out": (out or "").strip()[-600:],
+    latest = ""
+    err_msg = ""
+    if rc == 0:
+        bks = backups_list()
+        if bks:
+            latest = bks[0].get("file") or ""
+    else:
+        err_msg = (err or out or "").strip()[-400:] or f"退出码 {rc}"
+    return {"ok": rc == 0, "file": latest, "error": err_msg,
+            "out": (out or "").strip()[-600:],
             "err": (err or "").strip()[-400:],
             "log": tail_lines(os.path.join(LOGS, "backup.log"), 5)}
 
@@ -1356,6 +1754,14 @@ def _login_worker(platform: str):
             else:
                 tail = _clean(buf)[-600:].lower()
                 job["state"] = "failed" if ("error" in tail or "fail" in tail) else "cancelled"
+        if job.get("state") == "success":
+            _invalidate_cache("local_codex", "models")
+            try:
+                cfg_res = ensure_channel_defaults(platform)
+                if cfg_res.get("changed") and port_pid(parse_config()["port"]):
+                    _restart_async()
+            except Exception:
+                pass
         job["ended"] = time.time()
     except Exception as e:  # noqa: BLE001
         job["state"] = "failed"
@@ -1419,6 +1825,96 @@ def login_cancel(platform: str) -> dict:
     return {"ok": True, "job": _job_view(platform)}
 
 
+def import_local_codex() -> dict:
+    """将本机 ~/.codex/auth.json 安全转换并导入网关 AUTH_DIR。"""
+    p = os.path.expanduser(CODEX_AUTH_PATH)
+    if not os.path.exists(p):
+        return {"ok": False, "error": "本机未找到 ~/.codex/auth.json"}
+    try:
+        a = json.loads(read_text(p) or "{}")
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"~/.codex/auth.json 解析失败：{e}"}
+    if not isinstance(a, dict):
+        return {"ok": False, "error": "~/.codex/auth.json 格式无效"}
+    t = a.get("tokens") if isinstance(a.get("tokens"), dict) else a
+    acc = (t.get("access_token") or "") if isinstance(t, dict) else ""
+    ref = (t.get("refresh_token") or "") if isinstance(t, dict) else ""
+    idt = (t.get("id_token") or "") if isinstance(t, dict) else ""
+    if not acc:
+        return {"ok": False, "error": "~/.codex/auth.json 里没有 access_token"}
+
+    id_c = _jwt_claims(idt)
+    acc_c = _jwt_claims(acc)
+    acc_auth = acc_c.get("https://api.openai.com/auth") or {}
+    id_auth = id_c.get("https://api.openai.com/auth") or {}
+    acc_prof = acc_c.get("https://api.openai.com/profile") or {}
+
+    exp = acc_c.get("exp")
+    if isinstance(exp, (int, float)) and exp <= time.time() and not ref:
+        return {"ok": False, "error": "本机 ~/.codex/auth.json 令牌已过期且无刷新令牌，请先运行 codex login 或使用扫码授权"}
+
+    email = str(id_c.get("email") or acc_prof.get("email") or t.get("email") or a.get("email") or "")
+    plan = str(acc_auth.get("chatgpt_plan_type") or id_auth.get("chatgpt_plan_type") or "")
+    account_id = str(t.get("account_id") or acc_auth.get("chatgpt_account_id") or id_auth.get("chatgpt_account_id") or "")
+    expired_iso = (
+        datetime.fromtimestamp(float(exp), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if isinstance(exp, (int, float)) else ""
+    )
+    last_refresh = str(a.get("last_refresh") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+    doc = {
+        "type": "codex",
+        "email": email,
+        "id_token": idt,
+        "access_token": acc,
+        "refresh_token": ref,
+        "account_id": account_id,
+        "last_refresh": last_refresh,
+        "expired": expired_iso,
+    }
+
+    safe_email = re.sub(r"[^A-Za-z0-9_.@-]+", "_", email or (account_id[:8] if account_id else "local"))
+    safe_plan = re.sub(r"[^a-z0-9_-]+", "", plan.lower()) if plan else ""
+    fname = f"codex-{safe_email}{'-' + safe_plan if safe_plan else ''}.json"
+    os.makedirs(AUTH_DIR, mode=0o700, exist_ok=True)
+    dst = os.path.join(AUTH_DIR, fname)
+    tmp = dst + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=2)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, dst)
+
+    cfg_res = ensure_channel_defaults("codex")
+    _invalidate_cache("local_codex", "models")
+
+    alive_pid = port_pid(parse_config()["port"])
+    if cfg_res.get("changed") and alive_pid:
+        restart_gateway(15)
+    elif alive_pid:
+        time.sleep(0.8)
+    _invalidate_cache("models")
+    fm = fetch_models()
+    if alive_pid and fm.get("ok") and fm.get("models"):
+        owners = fm.get("owners") or {}
+        oai_models = [m for m in fm["models"] if owners.get(m) == "openai" or m.startswith(("gpt-", "codex"))]
+        if oai_models:
+            al = aliases_read()
+            c_list = al.get("codex") or []
+            if c_list and c_list[0].get("name") not in fm["models"]:
+                best = _pick_preferred_model("codex", c_list[0]["name"], oai_models)
+                if best and best != c_list[0]["name"]:
+                    c_list[0]["name"] = best
+                    al["codex"] = c_list
+                    aliases_write(al)
+    return {
+        "ok": True,
+        "auth_file": fname,
+        "email": email,
+        "plan": plan,
+        "alias_added": bool(cfg_res.get("changed")),
+    }
+
+
 def _job_view(platform: str) -> dict:
     job = _JOBS.get(platform)
     if not job:
@@ -1463,6 +1959,11 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(data)
         except Exception:
             pass
+        ms = round((time.time() - getattr(self, "_t0", time.time())) * 1000)
+        if (code >= 400 and code != 401) or ms >= 1000:
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{ts}] {getattr(self, 'command', '?')} {self.path} -> {code} ({ms}ms)",
+                  file=sys.stderr, flush=True)
 
     def _json(self, obj, code=200):
         self._send(json.dumps(obj, ensure_ascii=False).encode("utf-8"),
@@ -1480,6 +1981,7 @@ class Handler(BaseHTTPRequestHandler):
         return False
 
     def do_GET(self):  # noqa: N802
+        self._t0 = time.time()
         p = urlparse(self.path).path
         if not self._guard(p):
             return
@@ -1487,6 +1989,8 @@ class Handler(BaseHTTPRequestHandler):
             if p in ("/", "/index.html"):
                 html = read_text(os.path.join(BASE, "index.html"))
                 return self._send(html.encode("utf-8"), "text/html; charset=utf-8")
+            if p == "/favicon.ico":
+                return self._send(FAVICON_SVG, "image/svg+xml")
             if p == "/api/quota":
                 return self._json(quota_all(force=("force=1" in (self.path or ""))))
             if p == "/api/channel":
@@ -1525,9 +2029,12 @@ class Handler(BaseHTTPRequestHandler):
                                    "port": cfg["port"]})
             return self._json({"error": "not found"}, 404)
         except Exception as e:  # noqa: BLE001
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
             return self._json({"error": f"{type(e).__name__}: {e}"}, 500)
 
     def do_POST(self):  # noqa: N802
+        self._t0 = time.time()
         p = urlparse(self.path).path
         n = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(n) if n else b"{}"
@@ -1557,6 +2064,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(login_start(body.get("platform") or ""))
             if p == "/api/login/cancel":
                 return self._json(login_cancel(body.get("platform") or ""))
+            if p == "/api/login/import-codex":
+                return self._json(import_local_codex())
             if p == "/api/keys/add":
                 return self._json(keys_add(body.get("label") or ""))
             if p == "/api/keys/del":
@@ -1604,6 +2113,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "t": time.time()})
             return self._json({"error": "not found"}, 404)
         except Exception as e:  # noqa: BLE001
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
             return self._json({"error": f"{type(e).__name__}: {e}"}, 500)
 
 
@@ -1679,10 +2190,12 @@ def restart_gateway(wait=30):
     while time.time() - t0 < wait:
         pid = port_pid(port)
         if pid and pid != old:
+            _invalidate_cache(f"rt:{port}", "models")
             return {"ok": True, "seconds": round(time.time() - t0, 1),
                     "port": port, "pid": pid}
         time.sleep(0.6)
     pid = port_pid(port)
+    _invalidate_cache(f"rt:{port}", "models")
     return {"ok": False, "seconds": round(time.time() - t0, 1), "port": port,
             "pid": pid, "error": "端口仍在旧进程手上，重启未生效" if pid else "端口没有重新监听"}
 
@@ -1717,6 +2230,7 @@ def keys_del(key):
     if len(keep) == len(items):
         return {"ok": False, "error": "没找到这把 Key"}
     _rewrite_keys(keep)
+    _invalidate_cache("models")
     _restart_async()
     return {"ok": True, "count": len(keep), "restart": {"ok": True, "async": True,
             "note": "网关正在重启，约 1 秒后生效"}}
@@ -1751,14 +2265,27 @@ def _gateway_base():
     return f"http://{host}:{cfg['port']}"
 
 
+def _cli_bins_cached():
+    def _probe():
+        has_claude = bool(shutil.which("claude")) or bool(
+            (sh(["bash", "-lc", "command -v claude"], timeout=3)[1] or "").strip()
+        )
+        has_codex = bool(shutil.which("codex")) or os.path.exists(CODEX_BIN) or bool(
+            (sh(["bash", "-lc", "command -v codex"], timeout=3)[1] or "").strip()
+        )
+        return {"claude": has_claude, "codex": has_codex}
+    return _cached_call("cli_bins", 300, _probe)
+
+
 def clients_detect():
     base = _gateway_base()
+    bins = _cli_bins_cached()
     out = []
 
     # Claude Code —— 读 settings.json 的 env 段
     c = {"id": "claude-code", "name": "Claude Code", "file": CLAUDE_JSON,
          "exists": os.path.exists(CLAUDE_JSON), "wired": False,
-         "cmd": bool((sh(["bash", "-lc", "command -v claude"], timeout=4)[1] or "").strip()),
+         "cmd": bins["claude"],
          "protocol": "Anthropic", "base": base}
     if c["exists"]:
         try:
@@ -1774,8 +2301,7 @@ def clients_detect():
     # Codex CLI —— 读 config.toml 里有没有 [model_providers.gatewayone]
     c = {"id": "codex", "name": "Codex CLI", "file": CODEX_TOML,
          "exists": os.path.exists(CODEX_TOML), "wired": False,
-         "cmd": bool((sh(["bash", "-lc", "command -v codex"], timeout=4)[1] or "").strip())
-                or os.path.exists(CODEX_BIN),
+         "cmd": bins["codex"],
          "protocol": "OpenAI", "base": base + "/v1"}
     if c["exists"]:
         t = read_text(CODEX_TOML) or ""
@@ -1899,11 +2425,12 @@ def settings_set(patch):
     changed = []
     if "notify_level" in patch:
         v = str(patch["notify_level"])
-        if v in ("all", "severe", "off"):
-            with open(os.path.join(GW, ".notify-level"), "w", encoding="utf-8") as f:
-                f.write(v)
-            os.chmod(os.path.join(GW, ".notify-level"), 0o600)
-            changed.append("通知级别")
+        if v not in ("all", "severe", "off"):
+            return {"ok": False, "error": "notify_level 只能是 all / severe / off"}
+        with open(os.path.join(GW, ".notify-level"), "w", encoding="utf-8") as f:
+            f.write(v)
+        os.chmod(os.path.join(GW, ".notify-level"), 0o600)
+        changed.append("通知级别")
     if "host" in patch:
         v = str(patch["host"])
         if v not in ("127.0.0.1", "0.0.0.0"):
@@ -1919,19 +2446,17 @@ def settings_set(patch):
             return {"ok": False, "error": "端口需在 1024-65535 之间"}
         t = re.sub(r"^(\s+)port:\s*\d+", lambda m: f"{m.group(1)}port: {v}", t, count=1, flags=re.M)
         changed.append("端口")
-    if "notify_level" in patch and patch["notify_level"] in ("all", "severe", "off"):
-        with open(os.path.join(GW, ".notify-level"), "w", encoding="utf-8") as f:
-            f.write(patch["notify_level"])
-        os.chmod(os.path.join(GW, ".notify-level"), 0o600)
     if "log_debug" in patch:
         v = "true" if patch["log_debug"] else "false"
         t = re.sub(r"^(\s+)debug:\s*(?:true|false)", lambda m: f"{m.group(1)}debug: {v}", t, count=1, flags=re.M)
         changed.append("日志级别")
     if not changed:
         return {"ok": False, "error": "没有可改的项"}
-    _write_cfg_raw(t)
-    # 只有动了网关配置（host/port/debug）才需要重启；通知级别这类只影响控制台
-    need_restart = any(c in ("访问范围", "端口", "日志调试") for c in changed)
+    # 只有动了网关配置（host/port/debug）才需要写 config.yaml 与重启；通知级别只影响控制台
+    need_restart = any(c in ("访问范围", "端口", "日志级别") for c in changed)
+    if need_restart:
+        _write_cfg_raw(t)
+    _invalidate_cache()
     r = restart_gateway() if need_restart else {"ok": True, "skipped": True}
     return {"ok": r["ok"], "changed": changed, "restart": r, "before": old,
             "after": settings_get()}
@@ -1983,6 +2508,30 @@ def _probe_once(model, prompt, max_tokens=64, timeout=150):
     if r.get("ok"):
         return True, ms, (r.get("text") or "")[:60], r.get("model") or ""
     return False, ms, (r.get("error") or "未知错误")[:200], ""
+
+
+def _doctor_probe_model(pf: str) -> str:
+    """选择体检实调用的模型名：优先用已配置别名，其次首个可用渠道模型，最后按平台兜底。"""
+    try:
+        al = (aliases_read() or {}).get(pf) or []
+        names = [a.get("alias") or a.get("name") for a in al if a.get("alias") or a.get("name")]
+        if names:
+            if pf == "claude" and "haiku" in names:
+                return "haiku"
+            return names[0]
+    except Exception:  # noqa: BLE001
+        pass
+    owner = (CHANNEL_META.get(pf) or {}).get("owner")
+    if owner:
+        try:
+            fm = fetch_models() or {}
+            owners = fm.get("owners") or {}
+            for m in (fm.get("models") or []):
+                if owners.get(m) == owner:
+                    return m
+        except Exception:  # noqa: BLE001
+            pass
+    return {"claude": "haiku", "xai": "grok", "codex": "codex"}.get(pf, pf)
 
 
 def doctor_worker(mode="deep"):
@@ -2044,9 +2593,10 @@ def doctor_worker(mode="deep"):
                 _doc_add("出口代理配置", True, proxy)
 
             # 5 三家实调用
-            for label, model, pf in (("Claude Max", "haiku", "claude"),
-                                     ("xAI Grok", "grok", "xai"),
-                                     ("ChatGPT", "gpt-6-sol", "codex")):
+            for label, pf in (("Claude Max", "claude"),
+                              ("xAI Grok", "xai"),
+                              ("ChatGPT", "codex")):
+                model = _doctor_probe_model(pf)
                 has = any(a["type"] == pf and not a.get("disabled") for a in auths)
                 if not has:
                     _doc_add(f"实调用 · {label}", True, "未接入，跳过", level="skip")
@@ -2163,7 +2713,8 @@ def doctor_text():
 PWFILE = os.path.join(GW, ".ui-password")
 SESSIONS = {}
 SESS_TTL = 7 * 86400
-AUTH_OPEN_PATHS = ("/", "/index.html", "/api/auth/login", "/api/auth/state", "/api/auth/off")
+AUTH_OPEN_PATHS = ("/", "/index.html", "/favicon.ico", "/api/auth/login", "/api/auth/state", "/api/auth/off")
+FAVICON_SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#141d2b"/><path d="M16 7l9 9-9 9-9-9z" fill="none" stroke="#60a5fa" stroke-width="2.4"/></svg>'
 
 
 # ───────── 系统通知 ─────────
@@ -2316,27 +2867,37 @@ def channel_detail(ch):
             creds.append(a)
 
     # 额度
-    q = (quota_cached() or {}).get(ch) or {}
+    qc = quota_cached() or {}
+    q = qc.get(meta["cfgkey"]) or qc.get(ch) or {}
 
     # 异常（只该平台的）
-    ov = overview()
     pref = {"claude": ("claude", "anthropic"), "codex": ("gpt", "codex", "openai"),
             "xai": ("grok", "xai"), "antigravity": ("gemini", "antigravity")}[ch]
-    issues = [i for i in (ov.get("issues") or [])
+    issues = [i for i in (scan_errors() or [])
               if any((i.get("model") or i.get("provider") or "").startswith(p) for p in pref)]
 
     models = []
+    seen_pairs = set()
     for m in mine:
-        models.append({"id": m, "alias": alias_of.get(m, ""), "is_alias": False})
+        al_name = alias_of.get(m, "")
+        models.append({"id": m, "alias": al_name, "is_alias": False})
+        seen_pairs.add((m, al_name))
     for a in my_alias:
+        pair = (a.get("name") or "", a.get("alias") or "")
+        if pair in seen_pairs or (pair[0] in mine and not pair[1]):
+            continue
         models.append({"id": a.get("name"), "alias": a.get("alias"),
-                       "display": a.get("display"), "is_alias": True})
+                       "display": a.get("display_name") or a.get("display") or "", "is_alias": True})
 
-    base_lan = "http://%s:%s" % (lan_ip(), parse_config()["port"])
+    cfg = parse_config()
+    is_lan = cfg["host"] in ("0.0.0.0", "")
+    eff_host = (lan_ip() or "127.0.0.1") if is_lan else "127.0.0.1"
+    base_lan = "http://%s:%s" % (eff_host, cfg["port"])
     return {
         "ok": True, "id": ch,
         "label": meta["label"], "color": meta["color"], "desc": meta["desc"],
         "creds": creds,
+        "local_cred": local_codex_status() if ch == "codex" else None,
         "models": models,
         "model_count": len(mine),
         "alias_count": len(my_alias),

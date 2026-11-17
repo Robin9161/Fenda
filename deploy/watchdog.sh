@@ -77,7 +77,7 @@ if [ -z "$KEY" ]; then
   exit 0
 fi
 
-CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 15 \
+CODE=$(curl -s --noproxy '*' -o /dev/null -w '%{http_code}' -m 15 \
         -H "Authorization: Bearer $KEY" "$BASE/v1/models" 2>/dev/null)
 
 case "$CODE" in
@@ -111,7 +111,7 @@ if [ "$FAILS" -ge 3 ]; then
   say "UNHEALTHY x$FAILS, restarting"
   restart_service
   rm -f "$FAIL_FILE"
-  CODE2=$(curl -s -o /dev/null -w '%{http_code}' -m 15 \
+  CODE2=$(curl -s --noproxy '*' -o /dev/null -w '%{http_code}' -m 15 \
           -H "Authorization: Bearer $KEY" "$BASE/v1/models" 2>/dev/null)
   if [ "$CODE2" = "200" ]; then
     say "RECOVER: 200 after restart"

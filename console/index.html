@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gateway One · 订阅网关控制台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23141d2b'/%3E%3Cpath d='M16 7l9 9-9 9-9-9z' fill='none' stroke='%2360a5fa' stroke-width='2.4'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#0a0d13; --panel:#111722; --panel2:#0d131c; --line:#1e2836; --line2:#2a3648;
@@ -13,7 +14,8 @@
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
 body{
   background:radial-gradient(1200px 600px at 20% -10%,#152033 0%,transparent 60%),
              radial-gradient(900px 500px at 90% 0%,#1a1526 0%,transparent 55%),
@@ -58,8 +60,8 @@ header{
 .btn:hover{background:#182130;border-color:#33445c}
 .btn:active{transform:translateY(1px)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
-.btn.pri{background:linear-gradient(180deg,#2f6fd8,#2457ac);border-color:#3a7ce8}
-.btn.pri:hover{background:linear-gradient(180deg,#3a7ce8,#2a63c4)}
+.btn.pri,.btn.primary{background:linear-gradient(180deg,#2f6fd8,#2457ac);border-color:#3a7ce8;color:#f4f8ff}
+.btn.pri:hover,.btn.primary:hover{background:linear-gradient(180deg,#3a7ce8,#2a63c4);border-color:#4d8cf2}
 .btn.danger:hover{background:#2a1416;border-color:#5c2b2b;color:#ff9b95}
 .btn.sm{padding:4px 9px;font-size:11.5px;border-radius:6px}
 
@@ -72,14 +74,26 @@ header{
 /* ───────── 链路 ───────── */
 .chain{
   position:relative;display:grid;grid-template-columns:300px minmax(220px,1fr) 300px;
-  gap:26px;align-items:center;padding:30px 18px;
+  gap:18px 26px;align-items:center;padding:18px 18px 20px;
 }
-@media(max-width:1080px){.chain{grid-template-columns:1fr;gap:14px;padding:20px 8px}}
+.chain.has-auth{align-items:start}
+@media(max-width:1080px){.chain{grid-template-columns:1fr;gap:14px;padding:16px 12px}}
+.chain-guide{
+  grid-column:1/-1;position:relative;z-index:2;display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;
+  padding:9px 14px;border-radius:10px;
+  background:linear-gradient(90deg,rgba(76,141,255,.1),rgba(167,139,250,.05));
+  border:1px solid rgba(76,141,255,.22);font-size:12px;color:#c9d7ea;
+}
+.chain-guide .cg-badge{font-size:10.5px;font-weight:600;letter-spacing:.8px;padding:2px 7px;border-radius:5px;
+  background:rgba(76,141,255,.2);color:#9ec5ff;white-space:nowrap}
+.chain-guide .cg-steps{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;color:var(--dim)}
+.chain-guide .cg-steps b{color:#e4edf8;font-weight:600}
+.chain-guide .cg-sep{color:var(--dim2)}
 #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-.lane{display:flex;flex-direction:column;gap:11px;position:relative;z-index:2}
+.lane{display:flex;flex-direction:column;gap:9px;position:relative;z-index:2}
 
 .sub{
-  display:flex;gap:11px;align-items:flex-start;padding:12px 13px;border-radius:12px;
+  display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border-radius:12px;
   background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,.008));
   border:1px solid var(--line);cursor:pointer;transition:.18s;position:relative;overflow:hidden;
 }
@@ -186,6 +200,11 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .m-badge{position:absolute;top:7px;right:8px;font-size:9.5px;letter-spacing:.4px;
   padding:1px 5px;border-radius:4px;background:rgba(76,141,255,.18);color:#9ec1ff}
 .empty{padding:34px;text-align:center;color:var(--dim2);font-size:13px}
+.mgrid>.empty,.mgrid>.empty-state{grid-column:1/-1}
+.empty-state{padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px}
+.empty-state .es-t{font-size:13.5px;font-weight:600;color:#dbe6f5}
+.empty-state .es-d{font-size:12px;color:var(--dim);max-width:440px;line-height:1.6}
+.empty-state .es-act{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;justify-content:center}
 
 /* 右栏 */
 .aside{display:flex;flex-direction:column;gap:20px}
@@ -244,6 +263,8 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .pick-name{font-size:13.5px;color:#e6eef8;font-weight:600;display:block}
 .pick-sub{font-size:11.5px;color:var(--dim2);margin-left:auto;font-family:var(--mono)}
 .pick-sub.ok{color:#4ade80}
+.pick-sub.local{color:#fbbf24}
+.pick-local{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;margin-bottom:12px;border-radius:10px;background:rgba(16,163,127,.10);border:1px solid rgba(16,163,127,.32);font-size:12px;color:#d5ece4}
 .wait-pf{font-size:13px;color:#cfe0f2;font-weight:600;margin-bottom:14px}
 .code-wrap{background:#0b111a;border:1px solid #22303f;border-radius:14px;padding:18px;text-align:center;cursor:pointer;transition:.15s}
 .code-wrap:hover{border-color:#365069}
@@ -310,7 +331,7 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .adv-hd{font-size:13px;color:#dbe6f5;margin-bottom:9px;display:flex;gap:8px;align-items:baseline}
 .adv-sub{font-size:11px;color:var(--dim2);font-weight:400}
 .adv-alias{display:flex;flex-direction:column;gap:8px}
-.adv-ch{font-size:11px;letter-spacing:1px;color:var(--dim2);text-transform:uppercase;margin-top:6px}
+.adv-ch{font-size:11px;letter-spacing:1px;color:var(--dim2);text-transform:uppercase;margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .adv-row{display:grid;grid-template-columns:1fr 120px 26px;gap:7px;align-items:center}
 .adv-row input{background:#0b1220;border:1px solid var(--line);color:#d6e0ee;border-radius:6px;padding:6px 9px;font-size:12px;font-family:var(--mono);min-width:0}
 .adv-row .del{color:#8b98ab;cursor:pointer;text-align:center;font-size:14px;line-height:1}
@@ -370,8 +391,16 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .orb-meta{margin-top:4px;font-size:10.5px;line-height:1.6;font-family:var(--mono);color:var(--dim2);white-space:pre-line}
 .orb-tag{position:absolute;top:10px;right:10px;font-size:9.5px;padding:2px 6px;border-radius:5px;
   letter-spacing:.6px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6)}
+.orb-tag:empty{display:none}
 .orb.dead{opacity:.55}
 .orb.dead .orb-ring{opacity:.25}
+.orb.connectable{cursor:pointer;opacity:.82;border-style:dashed;border-color:var(--line2)}
+.orb.connectable:hover{opacity:1;border-style:solid;border-color:color-mix(in srgb,var(--c) 55%,var(--line2));transform:translateY(-3px)}
+.orb.connectable .orb-big{font-family:inherit;font-size:16px;font-weight:600;letter-spacing:.5px;color:#d7e4f4}
+.orb.connectable:hover .orb-big{color:#fff}
+.orb.live{cursor:pointer;border-color:color-mix(in srgb,var(--c) 40%,var(--line));
+  box-shadow:0 10px 28px -18px color-mix(in srgb,var(--c) 75%,transparent)}
+.orb.live:hover{border-color:color-mix(in srgb,var(--c) 65%,var(--line2))}
 .orb.live .orb-shell{animation:breathe 4.2s ease-in-out infinite}
 @keyframes breathe{0%,100%{box-shadow:inset 0 -20px 30px -14px color-mix(in srgb,var(--c) 60%,transparent),
   inset 0 8px 16px rgba(255,255,255,.07),0 14px 30px -14px color-mix(in srgb,var(--c) 70%,transparent),
@@ -419,7 +448,12 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .more-pop button:hover{background:rgba(255,255,255,.07)}
 .more-pop button.dn{color:#f87171}
 .more-pop hr{border:0;border-top:1px solid rgba(255,255,255,.08);margin:4px 2px}
-@media(max-width:1180px){.tabs{display:none}}
+@media(max-width:1180px){
+  .hd{gap:10px 12px;padding:10px 16px}
+  .tabs{display:flex;order:10;flex:1 0 100%;margin-left:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs .tab{flex:1 0 auto;text-align:center;padding:5px 12px}
+}
 
 .seg{display:inline-flex;gap:2px;background:rgba(255,255,255,.04);border:1px solid var(--line);
   border-radius:8px;padding:2px}
@@ -479,8 +513,8 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .dw-m .id{font-family:var(--mono);color:#c6d4e4;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dw-m .al{font-family:var(--mono);font-size:10.5px;color:#93c5fd;background:rgba(96,165,250,.14);
   border-radius:5px;padding:1px 6px}
-.dw-m .go{border:0;background:none;color:var(--dim2);cursor:pointer;font-size:11px;padding:2px 6px;border-radius:5px}
-.dw-m .go:hover{background:rgba(255,255,255,.08);color:#e6eef8}
+.dw-m .go,.dw-api .go{border:0;background:none;color:var(--dim);cursor:pointer;font-size:11.5px;padding:2px 7px;border-radius:5px;font-family:inherit}
+.dw-m .go:hover,.dw-api .go:hover{background:rgba(255,255,255,.08);color:#e6eef8}
 .dw-code{font-family:var(--mono);font-size:11px;line-height:1.65;color:#9fb3c8;white-space:pre-wrap;
   max-height:180px;overflow-y:auto;background:#080d14;border-radius:9px;padding:10px 12px;
   border:1px solid rgba(255,255,255,.05)}
@@ -495,13 +529,20 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .sub-more:hover{background:rgba(255,255,255,.09);color:#e6eef8}
 
 /* 折叠事件区 */
-.evfold{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden}
-.evfold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:9px;padding:11px 14px;font-size:12.5px;color:#c3cfdd;user-select:none}
+.evfold{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;transition:border-color .16s,background .16s}
+.evfold:hover{border-color:var(--line2);background:#131b28}
+.evfold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:12px 15px;font-size:12.5px;color:#c3cfdd;user-select:none;transition:background .15s}
+.evfold>summary:hover{background:rgba(255,255,255,.025)}
 .evfold>summary::-webkit-details-marker{display:none}
-.evfold>summary::before{content:"▸";color:var(--dim2);font-size:10px;transition:transform .15s}
+.evfold>summary::before{content:"▸";color:var(--accent);font-size:11px;transition:transform .15s}
 .evfold[open]>summary::before{transform:rotate(90deg)}
-.evfold-t{font-weight:600;color:#dbe6f3}
-.evfold-hint{margin-left:auto;font-size:11.5px}
+.evfold-t{font-weight:600;color:#e4edf8;white-space:nowrap}
+.evfold #ev-count:not(:empty){padding:1px 8px;border-radius:999px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.25);color:#9ec1ff;font-size:11px;font-family:var(--mono);white-space:nowrap}
+.evfold-hint{margin-left:auto;font-size:11.5px;display:flex;align-items:center;gap:9px;min-width:0;max-width:72%}
+.evfold-sum{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fb0c5}
+.evfold-tm{font-family:var(--mono);font-size:11px;color:var(--dim2);white-space:nowrap}
+.evfold-cta{font-size:11px;color:#8fb8ff;padding:2px 8px;border-radius:6px;background:rgba(76,141,255,.1);border:1px solid rgba(76,141,255,.24);white-space:nowrap}
+.evfold[open] .evfold-cta{color:var(--dim);background:rgba(255,255,255,.04);border-color:var(--line)}
 .evfold .events{max-height:300px;overflow-y:auto;border-top:1px solid var(--line)}
 /* 顶栏提醒红点 */
 .alertdot{display:inline-flex;align-items:center;gap:5px;background:rgba(220,60,60,.12);
@@ -509,6 +550,9 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
   font-size:11px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
 .alertdot:hover{background:rgba(220,60,60,.2);transform:translateY(-1px)}
 .alertdot .ad-dot{width:6px;height:6px;border-radius:50%;background:#ff6b6b;box-shadow:0 0 6px #ff6b6b}
+.alertdot.calm{background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.24);color:var(--dim);padding:6px;border-radius:50%}
+.alertdot.calm:hover{background:rgba(148,163,184,.18);color:var(--ink)}
+.alertdot.calm .ad-dot{background:#8b9bb0;box-shadow:none}
 
 /* API 板块 */
 .api-sub{margin-top:26px}
@@ -519,10 +563,14 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
 .ep-k{font-size:11px;letter-spacing:.8px;color:var(--dim2);text-transform:uppercase}
 .ep-v{font-family:var(--mono);font-size:12.5px;color:#d6e0ee;word-break:break-all}
 .ep-st{display:flex;flex-wrap:wrap;gap:7px;padding:11px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
-.ep-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;
-  border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03)}
+.ep-tag{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ep-tag.ok{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.1);color:#7fe0b4}
 .ep-tag.warn{border-color:rgba(250,204,21,.3);background:rgba(250,204,21,.1);color:#f5d67a}
+.ep-tag.bad{border-color:rgba(248,81,73,.35);background:rgba(248,81,73,.1);color:#ff9b95}
+.ep-tag.clickable{cursor:pointer;transition:border-color .15s,background .15s}
+.ep-tag.clickable:hover{border-color:rgba(255,255,255,.24);filter:brightness(1.08)}
 .gen-row{display:flex;flex-wrap:wrap;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
 .gen-f{display:flex;flex-direction:column;gap:5px}
 .gen-f label{font-size:10.5px;letter-spacing:.8px;color:var(--dim2);text-transform:uppercase}
@@ -532,10 +580,91 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
   color:#b8c8dc;white-space:pre-wrap;word-break:break-all;background:#0a1017}
 .gen-act{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}
 .hl-row{display:flex;flex-wrap:wrap;gap:20px;padding:13px 14px;border-bottom:1px solid var(--line)}
+.hl-empty{font-size:12.5px;color:#c3cfdd;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.hl-empty .dim{font-size:11.5px;color:var(--dim2)}
 .hl-i{display:flex;flex-direction:column;gap:3px}
 .hl-i .n{font-family:var(--mono);font-size:17px;color:#e6eef8}
 .hl-i .l{font-size:11px;letter-spacing:.6px;color:var(--dim2);text-transform:uppercase}
 .hl-up{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px}
+.sub-acts{display:flex;gap:5px;align-items:center;flex:0 0 auto;align-self:center}
+.sub-acts .btn.sm{padding:4px 8px}
+
+/* 键盘焦点与交互提示 */
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex="0"]:focus-visible{
+  outline:2px solid rgba(96,165,250,.85);outline-offset:2px}
+.ep-ctrl{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:11px 14px;border-top:1px solid var(--line);background:rgba(255,255,255,.015);border-radius:0 0 14px 14px}
+.ep-ctrl-msg{font-size:12px;color:var(--dim);line-height:1.6;flex:1;min-width:240px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ep-ctrl-msg.lan{color:#e5cfa0}
+.ep-ctrl-msg code{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.06);color:#dbe6f5}
+.ep-ctrl-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.key.clickable{cursor:pointer}
+@keyframes cardFlash{0%{box-shadow:0 0 0 0 rgba(96,165,250,.65)}50%{box-shadow:0 0 0 3px rgba(96,165,250,.45)}100%{box-shadow:none}}
+.flash-focus{animation:cardFlash 1.1s ease-out}
+
+/* 首屏轻量骨架占位 */
+@keyframes skelShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skel{border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.07) 50%,rgba(255,255,255,.03) 75%);background-size:200% 100%;animation:skelShimmer 1.6s infinite linear}
+.skel-sub{height:68px}
+.skel-key{height:54px}
+.skel-orb{height:186px;border-radius:16px}
+.skel-ep{height:132px;margin:12px}
+.skel-kv{height:44px;margin:10px}
+
+/* 区块间距、接入片段防窥、行内改名与暗色统一对话框 */
+.orbs + a + .sec-hd{margin-top:20px}
+.gen-code-wrap{position:relative;background:#0a1017}
+.gen-code-wrap .gen-code{padding-right:92px}
+.gen-eye{position:absolute;top:10px;right:12px;background:rgba(255,255,255,.05);border:1px solid var(--line2);color:var(--dim);font:inherit;font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer;transition:.15s}
+.gen-eye:hover{background:rgba(255,255,255,.1);color:var(--ink)}
+.gen-eye.on{border-color:rgba(210,153,34,.45);color:#f5d67a;background:rgba(210,153,34,.1)}
+.gen-priv-hint{margin-right:auto;font-size:11.5px;color:var(--dim2);align-self:center}
+.ui-dlg{z-index:220}
+.ui-dlg .modal-box{max-width:440px}
+.ui-dlg.wide .modal-box{max-width:520px}
+.ui-dlg-msg{font-size:13px;color:#cbd8e8;line-height:1.65;white-space:pre-line}
+.ui-dlg-in{width:100%;margin-top:12px;background:#0b1220;border:1px solid var(--line2);color:#e6eef8;border-radius:9px;padding:9px 12px;font:inherit;font-size:13px;outline:none}
+.ui-dlg-in:focus{border-color:var(--accent)}
+.btn.danger-pri{background:linear-gradient(180deg,#c93c37,#9e2a26);border-color:#e0524c;color:#fff}
+.btn.danger-pri:hover{background:linear-gradient(180deg,#dc4742,#b3322d);border-color:#f06560}
+.guide-steps{margin:0 0 14px;padding-left:18px;font-size:12.5px;color:#c6d4e4;line-height:1.75}
+.guide-kv{display:flex;flex-direction:column;gap:7px;background:#0b111a;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.guide-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.guide-row .gk{flex:0 0 64px;color:var(--dim)}
+.guide-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);color:#dbe6f5;font-size:11.5px}
+.key-lbl-in{width:100%;background:#0b1220;border:1px solid var(--accent);color:#e6eef8;border-radius:6px;padding:4px 8px;font:inherit;font-size:12px;outline:none}
+
+/* 拓扑连线语义状态与悬停高亮 */
+@keyframes wireFlow{to{stroke-dashoffset:-22}}
+.wire-path{fill:none;transition:stroke-width .18s,opacity .18s,filter .18s}
+.wire-idle{stroke:#334256;stroke-width:1.25;stroke-dasharray:3 5;opacity:.34}
+.wire-ready{stroke:#10a37f;stroke-width:1.5;stroke-dasharray:4 4;opacity:.62}
+.wire-warn{stroke:#d29922;stroke-width:1.5;stroke-dasharray:4 4;opacity:.68}
+.wire-live{stroke-width:1.85;stroke-dasharray:6 5;opacity:.88;animation:wireFlow 1.8s linear infinite}
+@media(prefers-reduced-motion:reduce){.wire-live{animation:none}}
+.wire-path.wire-hi{stroke-width:2.6!important;opacity:1!important;filter:drop-shadow(0 0 5px var(--wc,#60a5fa))}
+
+/* 模型回复摘要与轻量试调台 */
+.m-reply{margin-top:4px;font-size:11px;color:#9fb5cf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-top:1px dashed rgba(255,255,255,.06);padding-top:4px}
+.pg-dock{border-bottom:1px solid var(--line);background:rgba(10,16,24,.65)}
+.pg-dock[hidden]{display:none!important}
+.pg-box{padding:12px 15px;display:flex;flex-direction:column;gap:9px}
+.pg-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pg-sel{background:#0d141d;border:1px solid var(--line2);color:#e6eef8;border-radius:8px;padding:6px 10px;font:12px var(--mono);min-width:170px;outline:none}
+.pg-in{flex:1;min-width:200px;background:#0b1220;border:1px solid var(--line2);color:#e6eef8;border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;outline:none}
+.pg-in:focus,.pg-sel:focus{border-color:var(--accent)}
+.pg-out{background:#090e16;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:12px;line-height:1.6;color:#d3dfec}
+.pg-out-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--dim);margin-bottom:4px;font-family:var(--mono)}
+.pg-out-txt{white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto}
+
+/* 右栏额度紧凑行与内联刷新按钮 */
+.q-mini-btn{margin-left:8px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--dim);font:inherit;font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;letter-spacing:0;text-transform:none;font-weight:500;transition:.15s}
+.q-mini-btn:hover:not(:disabled){color:var(--ink);border-color:var(--line2);background:rgba(255,255,255,.08)}
+.q-mini-btn:disabled{opacity:.5;cursor:not-allowed}
+.q-clist{display:flex;flex-direction:column;gap:5px;margin-top:10px;padding-top:9px;border-top:1px dashed rgba(255,255,255,.06)}
+.q-clist:first-child{margin-top:0;padding-top:0;border-top:0}
+.q-crow{display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:7px;font-size:12px;color:#c7d4e4;cursor:pointer;transition:background .15s}
+.q-crow:hover{background:rgba(255,255,255,.045)}
+.q-crow .q-cnote{margin-left:auto;font-size:11px;color:var(--dim2);max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -587,7 +716,7 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
   <div class="sec-hd">链路 · 订阅 → 凭证 → 网关 → 客户端</div>
     <div class="card chain" id="chain">
       <svg id="wires"></svg>
-      <div class="lane lane-l" id="lane-l"></div>
+      <div class="lane lane-l" id="lane-l"><div class="skel skel-sub"></div><div class="skel skel-sub"></div><div class="skel skel-sub"></div><div class="skel skel-sub"></div></div>
       <div class="core">
         <div class="ring" id="ring">
           <div class="ring-inner">
@@ -597,14 +726,14 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
         </div>
         <div class="core-stats" id="core-stats"></div>
       </div>
-      <div class="lane lane-r" id="lane-r"></div>
+      <div class="lane lane-r" id="lane-r"><div class="skel skel-key"></div><div class="skel skel-key"></div><div class="skel skel-key"></div></div>
     </div>
   </div>
 
   <div class="cols">
     <!-- 左：模型 -->
     <div>
-      <div class="orbs" id="orbs"></div>
+      <div class="orbs" id="orbs"><div class="skel skel-orb"></div><div class="skel skel-orb"></div><div class="skel skel-orb"></div><div class="skel skel-orb"></div></div>
       <a id="sec-models"></a>
       <div class="sec-hd">模型矩阵</div>
       <div class="card models">
@@ -619,7 +748,9 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
           </div>
           <input type="search" id="q" placeholder="搜索模型…">
           <span class="tag" id="mcount">—</span>
+          <button class="btn sm" type="button" data-pg-toggle>试调台 ▾</button>
         </div>
+        <div class="pg-dock" data-pg-dock hidden></div>
         <div class="mgrid" id="mgrid"><div class="empty">载入中…</div></div>
       </div>
     </div>
@@ -637,7 +768,7 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
       </div>
 
       <div class="card">
-        <div class="panel-hd">额度余量<span class="dim" id="q-age" style="font-weight:400;letter-spacing:0"></span></div>
+        <div class="panel-hd">额度余量<span style="margin-left:auto;display:inline-flex;align-items:center"><span class="dim" id="q-age" style="font-weight:400;letter-spacing:0"></span><button type="button" class="q-mini-btn" data-quota-mini title="连接上游刷新真实额度">↻ 刷新</button></span></div>
         <div id="quota" style="padding:12px 14px"></div>
       </div>
       <div class="card">
@@ -648,23 +779,10 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
     </div>
   </div>
 
-  <div class="sec" id="sec-run">
-    <div class="sec-hd">运行明细</div>
-    <div class="card kvgrid" id="kv"></div>
-    <details class="evfold" id="evfold">
-      <summary>
-        <span class="evfold-t">最近事件</span>
-        <span class="cnt" id="ev-count"></span>
-        <span class="dim evfold-hint">点开看网关自己修过什么、凭证失效过没有</span>
-      </summary>
-      <div class="events" id="events"><div class="empty">—</div></div>
-    </details>
-  </div>
-
   <div class="sec" id="sec-api">
     <div class="sec-hd">API · 对外发布</div>
 
-    <div class="card" id="api-ep"></div>
+    <div class="card" id="api-ep"><div class="skel skel-ep"></div></div>
 
     <div class="api-sub">
       <div class="api-sub-hd">访问密钥 <span class="cnt" id="key-count"></span></div>
@@ -685,6 +803,19 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
       <div class="api-sub-hd">用量与上游健康</div>
       <div class="card" id="api-health"></div>
     </div>
+  </div>
+
+  <div class="sec" id="sec-run">
+    <div class="sec-hd">运行明细</div>
+    <div class="card kvgrid" id="kv"><div class="skel skel-kv"></div><div class="skel skel-kv"></div><div class="skel skel-kv"></div><div class="skel skel-kv"></div><div class="skel skel-kv"></div><div class="skel skel-kv"></div></div>
+    <details class="evfold" id="evfold">
+      <summary>
+        <span class="evfold-t">最近事件</span>
+        <span class="cnt" id="ev-count"></span>
+        <span class="dim evfold-hint">点开看网关自己修过什么、凭证失效过没有</span>
+      </summary>
+      <div class="events" id="events"><div class="empty">—</div></div>
+    </details>
   </div>
 </div>
 
@@ -889,16 +1020,34 @@ input[type=search]:focus{border-color:#33445c;background:#0f1622}
   <div class="dw-hd" id="dw-hd"></div>
   <div class="dw-body" id="dw-body"></div>
 </aside>
+<div class="modal ui-dlg" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-hd"><span data-dlg-title>提示</span><button type="button" class="modal-x" data-dlg-x>✕</button></div>
+    <div class="modal-body" data-dlg-body></div>
+  </div>
+</div>
 <script>
 "use strict";
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (closeUiDialog(null)) { e.stopPropagation(); return; }
+  closeDrawer();
+  closeModal();
+  const md = $("#modal-doc"); if (md && md.classList.contains("on")) { md.classList.remove("on"); if (docTimer) { clearInterval(docTimer); docTimer = null; } }
+  const ms = $("#modal-set"); if (ms) ms.classList.remove("on");
+  const ma = $("#modal-adv"); if (ma) ma.classList.remove("on");
+  const mr = $("#more"); if (mr) mr.classList.remove("open");
+});
 window.onerror = function(m, src, l, c, err) { window.__err = (window.__err || "") + m + " @" + l + " | "; };
 const $ = (s) => document.querySelector(s);
 const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
 
-const S = { data: null, group: "all", q: "", models: [], results: {}, selSub: null };
+const S = {
+  data: null, group: "all", q: "", models: [], results: {}, selSub: null, genReveal: false, editingKey: null,
+  pg: { open: false, model: "", prompt: "用一句话介绍你自己，并确认链路正常。", busy: false, last: null },
+};
 
 const PLAT = {
   claude: { name: "Claude Max", letter: "C", color: "var(--claude)", raw: "#d97757" },
@@ -925,21 +1074,198 @@ function toast(msg, kind) {
 }
 
 function fmtDur(sec) {
-  if (sec == null) return "—";
+  if (sec == null || !isFinite(sec)) return "—";
   const neg = sec < 0; sec = Math.abs(sec);
+  if (sec > 0 && sec < 60) return neg ? "已过期 <1分" : "<1分";
   const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
-  let s = d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${m}分`;
+  const s = d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${m}分`;
   return neg ? "已过期 " + s : s;
+}
+
+function parseTs(raw) {
+  if (raw == null || raw === "") return null;
+  if (typeof raw === "number") { const d = new Date(raw); return isNaN(d.getTime()) ? null : d; }
+  const s = String(raw).trim();
+  if (!s) return null;
+  const norm = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s) ? s.replace(" ", "T") : s;
+  const d = new Date(norm);
+  return isNaN(d.getTime()) ? null : d;
+}
+function pad2(n) { return String(n).padStart(2, "0"); }
+function stripTzFallback(raw) {
+  return String(raw || "").replace("T", " ").replace(/([+-]\d{2}:?\d{2}|Z)$/, "").trim();
+}
+function fmtClock(raw) {
+  const d = parseTs(raw);
+  if (!d) { const f = stripTzFallback(raw); return f.length >= 16 ? f.slice(11, 16) : f; }
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function fmtLocal(raw) {
+  const d = parseTs(raw);
+  if (!d) return stripTzFallback(raw) || "—";
+  const now = new Date();
+  const md = `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}-${md}`;
 }
 function ago(iso) {
   if (!iso) return "";
-  const t = Date.parse(iso); if (isNaN(t)) return iso;
-  const s = Math.floor((Date.now() - t) / 1000);
-  if (s < 0) return "刚刚";
-  if (s < 60) return s + "秒前";
-  if (s < 3600) return Math.floor(s / 60) + "分前";
-  if (s < 86400) return Math.floor(s / 3600) + "小时前";
-  return Math.floor(s / 86400) + "天前";
+  const d = parseTs(iso);
+  if (!d) return fmtLocal(iso);
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 45) return "刚刚";
+  if (s < 3600) return Math.floor(s / 60) + " 分钟前";
+  if (s < 86400) return Math.floor(s / 3600) + " 小时前";
+  return fmtLocal(d);
+}
+function flashCopied(btn) {
+  if (!btn || btn.dataset.copiedBusy) return;
+  btn.dataset.copiedBusy = "1";
+  const old = btn.textContent;
+  btn.textContent = "已复制 ✓";
+  setTimeout(() => { btn.textContent = old; delete btn.dataset.copiedBusy; }, 1400);
+}
+async function copyText(text, btn) {
+  try {
+    await navigator.clipboard.writeText(text);
+    flashCopied(btn);
+    toast("已复制 " + (text.length > 46 ? text.slice(0, 46) + "…" : text), "ok");
+  } catch (e) { toast("复制失败", "bad"); }
+}
+window.copyText = copyText;
+function bindKeyClick(node, handler) {
+  if (!node) return;
+  node.tabIndex = 0;
+  node.setAttribute("role", "button");
+  node.addEventListener("keydown", (e) => {
+    if (e.target !== node) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handler(e);
+    }
+  });
+}
+function jumpToKeys() {
+  const box = $("#keys");
+  if (!box) return;
+  const sec = box.closest(".api-sub") || box;
+  window.scrollTo({ top: sec.getBoundingClientRect().top + window.scrollY - 76, behavior: "smooth" });
+  box.classList.remove("flash-focus");
+  void box.offsetWidth;
+  box.classList.add("flash-focus");
+}
+function maskSecretPreview(k) {
+  const s = String(k || "");
+  return s.length > 18 ? `${s.slice(0, 12)}${"•".repeat(16)}${s.slice(-4)}` : s;
+}
+
+/* ───────── 统一暗色对话框（替代 alert / prompt / confirm） ───────── */
+let _dlgResolve = null, _dlgRestoreFocus = null;
+function closeUiDialog(val) {
+  const mask = $(".ui-dlg");
+  if (!mask || !mask.classList.contains("on")) return false;
+  mask.classList.remove("on", "wide");
+  const body = mask.querySelector("[data-dlg-body]");
+  if (body) body.innerHTML = "";
+  const res = _dlgResolve; _dlgResolve = null;
+  const prev = _dlgRestoreFocus; _dlgRestoreFocus = null;
+  if (prev && typeof prev.focus === "function") { try { prev.focus(); } catch (e) {} }
+  if (res) res(val);
+  return true;
+}
+function _openUiDialog(title, wide) {
+  if (_dlgResolve) closeUiDialog(null);
+  const mask = $(".ui-dlg"); if (!mask) return null;
+  _dlgRestoreFocus = document.activeElement;
+  mask.classList.toggle("wide", !!wide);
+  mask.querySelector("[data-dlg-title]").textContent = title || "提示";
+  const x = mask.querySelector("[data-dlg-x]");
+  if (x) x.onclick = () => closeUiDialog(null);
+  mask.onclick = (e) => { if (e.target === mask) closeUiDialog(null); };
+  mask.classList.add("on");
+  return mask.querySelector("[data-dlg-body]");
+}
+function uiConfirm(opts) {
+  const o = opts || {};
+  return new Promise((resolve) => {
+    const body = _openUiDialog(o.title || "确认操作", false);
+    if (!body) { resolve(false); return; }
+    _dlgResolve = (v) => resolve(!!v);
+    body.innerHTML = `<div class="ui-dlg-msg">${esc(o.body || "")}</div>
+      <div class="wait-row end">
+        <button type="button" class="btn" data-dlg-cancel>${esc(o.cancelText || "取消")}</button>
+        <button type="button" class="btn ${o.danger ? "danger-pri" : "primary"}" data-dlg-ok>${esc(o.okText || "确定")}</button>
+      </div>`;
+    body.querySelector("[data-dlg-cancel]").onclick = () => closeUiDialog(false);
+    const okBtn = body.querySelector("[data-dlg-ok]");
+    okBtn.onclick = () => closeUiDialog(true);
+    setTimeout(() => { try { okBtn.focus(); } catch (e) {} }, 20);
+  });
+}
+function uiPrompt(opts) {
+  const o = opts || {};
+  return new Promise((resolve) => {
+    const body = _openUiDialog(o.title || "输入信息", false);
+    if (!body) { resolve(null); return; }
+    _dlgResolve = (v) => resolve(v);
+    body.innerHTML = `${o.desc ? `<div class="ui-dlg-msg">${esc(o.desc)}</div>` : ""}
+      <input class="ui-dlg-in" type="${esc(o.inputType || "text")}" placeholder="${esc(o.placeholder || "")}" autocomplete="${o.inputType === "password" ? "current-password" : "off"}">
+      <div class="wait-row end">
+        <button type="button" class="btn" data-dlg-cancel>${esc(o.cancelText || "取消")}</button>
+        <button type="button" class="btn ${o.danger ? "danger-pri" : "primary"}" data-dlg-ok>${esc(o.okText || "确定")}</button>
+      </div>`;
+    const inp = body.querySelector(".ui-dlg-in");
+    inp.value = o.defaultValue != null ? String(o.defaultValue) : "";
+    const submit = () => {
+      const val = inp.value;
+      if (!o.allowEmpty && !val.trim()) {
+        inp.style.borderColor = "var(--bad)";
+        inp.focus();
+        return;
+      }
+      closeUiDialog(val);
+    };
+    inp.oninput = () => { inp.style.borderColor = ""; };
+    inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } };
+    body.querySelector("[data-dlg-cancel]").onclick = () => closeUiDialog(null);
+    body.querySelector("[data-dlg-ok]").onclick = submit;
+    setTimeout(() => { try { inp.focus(); inp.select(); } catch (e) {} }, 25);
+  });
+}
+function uiGuide(opts) {
+  const o = opts || {};
+  const body = _openUiDialog(o.title || "手动接入指引", true);
+  if (!body) return;
+  _dlgResolve = () => {};
+  const hasRealKey = !!(o.key && !/^（/.test(o.key));
+  const stepsHtml = (o.steps || []).map((s) => `<li>${esc(s)}</li>`).join("");
+  body.innerHTML = `<ol class="guide-steps">${stepsHtml}</ol>
+    <div class="guide-kv">
+      <div class="guide-row"><span class="gk">协议</span><code>Anthropic Messages</code></div>
+      <div class="guide-row"><span class="gk">接口地址</span><code>${esc(o.base || "—")}</code>${o.base ? `<button type="button" class="btn sm" data-gcopy="base">复制</button>` : ""}</div>
+      <div class="guide-row"><span class="gk">访问密钥</span><code>${esc(hasRealKey ? maskSecretPreview(o.key) : "请在下方「访问密钥」创建后复制")}</code>${hasRealKey ? `<button type="button" class="btn sm" data-gcopy="key">复制完整 Key</button>` : ""}</div>
+      <div class="guide-row"><span class="gk">模型名</span><code>${esc(o.model || "opus")}</code><button type="button" class="btn sm" data-gcopy="model">复制</button></div>
+    </div>
+    <div class="wait-row end"><button type="button" class="btn primary" data-dlg-done>知道了</button></div>`;
+  const cpBase = body.querySelector('[data-gcopy="base"]');
+  if (cpBase) cpBase.onclick = () => copyText(o.base, cpBase);
+  const cpKey = body.querySelector('[data-gcopy="key"]');
+  if (cpKey) cpKey.onclick = async () => {
+    try { await navigator.clipboard.writeText(o.key); flashCopied(cpKey); toast("已复制完整 Key", "ok"); }
+    catch (e) { toast("复制失败", "bad"); }
+  };
+  const cpModel = body.querySelector('[data-gcopy="model"]');
+  if (cpModel) cpModel.onclick = () => copyText(o.model || "opus", cpModel);
+  const doneBtn = body.querySelector("[data-dlg-done]");
+  doneBtn.onclick = () => closeUiDialog(true);
+  setTimeout(() => { try { doneBtn.focus(); } catch (e) {} }, 20);
+}
+async function confirmAndStopGateway() {
+  if (!(await uiConfirm({ title: "停止网关服务", body: "停止后网关端口将立即释放，所有已配置的客户端都会断连。", okText: "停止网关", danger: true }))) return;
+  try {
+    const r = await fetch("/api/service", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).then((x) => x.json());
+    toast(r.ok ? "已停止" : "停止命令已发出（端口已释放）", "ok");
+    setTimeout(refresh, 1200);
+  } catch (e) { toast("停止失败", "bad"); }
 }
 function groupOf(id, aliases) {
   if (aliases.includes(id)) return "alias";
@@ -952,11 +1278,33 @@ function groupOf(id, aliases) {
 /* ───────── 渲染：链路 ───────── */
 function renderChain(d) {
   const byType = {};
-  (d.auth || []).forEach((a) => { (byType[a.type] = byType[a.type] || []).push(a); });
+  const authList = d.auth || [];
+  authList.forEach((a) => { (byType[a.type] = byType[a.type] || []).push(a); });
+  const chainEl = $("#chain");
+  if (chainEl) {
+    chainEl.classList.toggle("has-auth", authList.length > 0);
+    let guide = chainEl.querySelector(".chain-guide");
+    if (!authList.length) {
+      const hasLocalCodex = !!(d && d.local_creds && d.local_creds.codex && d.local_creds.codex.available && !d.local_creds.codex.expired && !d.local_creds.codex.imported);
+      const step1 = hasLocalCodex ? "点左侧「导入本机」或任一平台「接入 →」" : "点左侧任一平台「接入 →」授权";
+      if (!guide) {
+        guide = el("div", "chain-guide");
+        chainEl.insertBefore(guide, chainEl.firstChild);
+      }
+      guide.innerHTML = `<span class="cg-badge">三步接入</span>
+        <div class="cg-steps">
+          <span><b>1.</b> ${esc(step1)}</span><span class="cg-sep">→</span>
+          <span><b>2.</b> 网关在本机自动挂载凭证（不出本机）</span><span class="cg-sep">→</span>
+          <span><b>3.</b> 复制右侧设备 Key 填入客户端即用</span>
+        </div>`;
+    } else if (guide) {
+      guide.remove();
+    }
+  }
 
   // 左：订阅 + 凭证
   const lane = $("#lane-l"); lane.innerHTML = "";
-  ["claude", "codex", "xai", "antigravity"].forEach((t) => {
+  ["claude", "codex", "xai", "antigravity"].forEach((t, idx) => {
     const p = PLAT[t]; if (!p) return;
     const list = byType[t] || [];
     const good = list.filter((x) => !x.disabled && (x.remain_sec == null || x.remain_sec > 0));
@@ -968,27 +1316,58 @@ function renderChain(d) {
       if (ev.target.closest(".sub-more")) { S.selSub = (S.selSub === t ? null : t); renderChain(S.data); return; }
       openChannel(t);
     };
+    bindKeyClick(card, () => openChannel(t));
+
+    const lc = (t === "codex" && d && d.local_creds && d.local_creds.codex) || null;
+    const canImportCodex = !!(t === "codex" && !a && lc && lc.available && !lc.expired);
+    const wireState = !a ? (canImportCodex ? "ready" : "idle") : ((a.disabled || (a.remain_sec != null && a.remain_sec < 0)) ? "warn" : "live");
+    card.dataset.subPf = t;
+    card.dataset.wireState = wireState;
+    const hiL = (on) => {
+      const pth = document.querySelector(`#wires [data-wire-l="${idx}"]`);
+      if (pth) pth.classList.toggle("wire-hi", on);
+    };
+    card.addEventListener("mouseenter", () => hiL(true));
+    card.addEventListener("mouseleave", () => hiL(false));
+    card.addEventListener("focusin", () => hiL(true));
+    card.addEventListener("focusout", () => hiL(false));
 
     const bad = !a || a.disabled || (a.remain_sec != null && a.remain_sec < 0);
     let tag;
-    if (!a) tag = `<span class="tag">未接入</span>`;
+    if (!a) tag = canImportCodex ? `<span class="tag warn">本机可导入</span>` : `<span class="tag">未接入</span>`;
     else if (a.disabled) tag = `<span class="tag bad">已禁用</span>`;
     else if (a.remain_sec != null && a.remain_sec < 0) tag = `<span class="tag warn">需刷新</span>`;
     else tag = `<span class="tag ok">有效</span>`;
 
+    const localCodexQuota = t === "codex" && !a && d.quota && d.quota.codex && d.quota.codex.ok;
+    const mailText = a
+      ? (a.email || a.file)
+      : (canImportCodex
+        ? (lc.email || (localCodexQuota && d.quota.codex.email) || "~/.codex/auth.json")
+        : (localCodexQuota && d.quota.codex.email ? d.quota.codex.email : "未绑定凭证"));
     const meta = a
       ? `${a.remain_sec != null ? "登录凭证 " + fmtDur(a.remain_sec) + " 后自动续期" : "长期有效"}${list.length > 1 ? ` · 共 ${list.length} 个账号` : ""}`
-      : "点击「接入」用你自己的订阅登录";
+      : (canImportCodex
+        ? "本机 ~/.codex 可直接导入"
+        : (localCodexQuota ? "本机已读到额度 · 点「接入 →」导入网关" : "用你自己的订阅浏览器授权登录"));
+
+    const actHtml = bad
+      ? (canImportCodex
+        ? `<div class="sub-acts"><button class="btn sm primary" data-import-codex title="直接导入本机 ~/.codex/auth.json 凭证，无需浏览器扫码">导入本机</button><button class="btn sm" data-relogin="codex" title="通过浏览器设备码登录其他 ChatGPT 账号">扫码</button></div>`
+        : `<button class="btn sm" data-relogin="${esc(t)}">${a ? "重新登录" : "接入 →"}</button>`)
+      : "";
 
     card.innerHTML = `
-      <div class="ico">${LOGO[t] || p.letter}</div>
-      <button class="sub-more" title="展开明细">⋯</button>
+      <div class="ico">${LOGO[t] || esc(p.letter)}</div>
+      ${a ? '<button class="sub-more" title="展开明细">⋯</button>' : ""}
       <div class="sub-main">
-        <div class="sub-name">${p.name} ${tag}</div>
-        <div class="sub-mail">${esc(a ? a.email || a.file : "—")}</div>
-        <div class="sub-meta"><span>${esc(meta)}</span>${a ? `<span>· ${a.perm}</span>` : ""}</div>
+        <div class="sub-name">${esc(p.name)} ${tag}</div>
+        <div class="sub-mail">${esc(mailText)}</div>
+        <div class="sub-meta"><span>${esc(meta)}</span>${a ? `<span>· ${esc(a.perm)}</span>` : ""}</div>
       </div>
-      ${bad ? `<button class="btn sm ${a ? "" : "primary"}" data-relogin="${t}">${a ? "重新登录" : "接入"}</button>` : ""}`;
+      ${actHtml}`;
+    const ic = card.querySelector("[data-import-codex]");
+    if (ic) ic.onclick = (e) => { e.stopPropagation(); importLocalCodex(ic); };
     const rl = card.querySelector("[data-relogin]");
     if (rl) rl.onclick = (e) => { e.stopPropagation(); startLogin(t); };
     lane.appendChild(card);
@@ -1005,45 +1384,55 @@ function renderChain(d) {
     }
   });
 
-  // 空状态引导：一个凭证都没有
-  if (!(d.auth || []).length) {
-    const box = el("div", "empty-box");
-    box.innerHTML = `<div class="e1">还没有接入任何账号</div>
-      <div class="e2">选一个平台，用你自己的订阅登录，凭证只留在这台机器上。</div>`;
-    const b1 = el("button", "btn primary", "接入第一个账号");
-    b1.onclick = openModal;
-    box.appendChild(b1);
-    $("#lane-l").appendChild(box);
-  }
-
   // 中：核心
   const g = d.gateway;
   $("#c-port").textContent = g.port;
   $("#ring").classList.toggle("dead", !g.alive);
+  const verTxt = g.version && g.version !== "?" ? esc(g.version) : "—";
   $("#core-stats").innerHTML = `
-    <span><b>${g.alive ? "PID " + g.pid : "未运行"}</b></span>
-    <span>运行 <b>${g.uptime || "—"}</b></span>
-    <span>内存 <b>${g.rss_mb != null ? g.rss_mb + "MB" : "—"}</b></span>
-    <span>v<b>${esc(g.version)}</b></span>`;
+    <span><b>${g.alive ? "PID " + esc(String(g.pid)) : "未运行"}</b></span>
+    <span>运行 <b>${esc(g.uptime || "—")}</b></span>
+    <span>内存 <b>${g.rss_mb != null ? esc(String(g.rss_mb)) + "MB" : "—"}</b></span>
+    <span>v<b>${verTxt}</b></span>`;
 
   // 右：Key
   const rl = $("#lane-r"); rl.innerHTML = "";
   (d.config.keys || []).forEach((k, i) => {
-    const box = el("div", "key");
+    const sk = (S.keys || [])[i];
+    const fallbackOwn = ["本机 / 主人", "设备 2", "设备 3", "设备 4", "设备 5"][i] || ("设备 " + (i + 1));
+    const ownName = (sk && sk.label) || k.label || fallbackOwn;
+    const box = el("div", "key clickable");
+    box.title = "点击管理设备备注与吊销";
+    box.dataset.wireState = g.alive ? "live" : "idle";
+    const hiR = (on) => {
+      const pth = document.querySelector(`#wires [data-wire-r="${i}"]`);
+      if (pth) pth.classList.toggle("wire-hi", on);
+    };
+    box.addEventListener("mouseenter", () => hiR(true));
+    box.addEventListener("mouseleave", () => hiR(false));
+    box.addEventListener("focusin", () => hiR(true));
+    box.addEventListener("focusout", () => hiR(false));
     box.innerHTML = `
       <div class="key-idx">${i + 1}</div>
       <div class="key-main">
-        <div class="key-own">${["本机 / 主人", "设备 2", "设备 3", "设备 4", "设备 5"][i] || "设备 " + (i + 1)}</div>
+        <div class="key-own">${esc(ownName)}</div>
         <div class="key-val">${esc(k.masked)}</div>
       </div>
       <button class="icon-btn" title="复制完整 Key">复制</button>`;
-    box.querySelector("button").onclick = async (e) => {
+    const cpBtn = box.querySelector("button");
+    cpBtn.onclick = async (e) => {
       e.stopPropagation();
       try {
         await navigator.clipboard.writeText(await fullKey(i));
+        flashCopied(cpBtn);
         toast("已复制 Key " + (i + 1), "ok");
       } catch (err) { toast("复制失败：" + err.message, "bad"); }
     };
+    box.onclick = (e) => {
+      if (e.target.closest("button")) return;
+      jumpToKeys();
+    };
+    bindKeyClick(box, jumpToKeys);
     rl.appendChild(box);
   });
   if (!(d.config.keys || []).length) rl.appendChild(el("div", "empty", "无客户端 Key"));
@@ -1063,7 +1452,9 @@ async function fullKey(i) {
 /* ───────── 渲染：连线 ───────── */
 function drawWires() {
   const svg = $("#wires"), chain = $("#chain");
+  if (!svg || !chain) return;
   const box = chain.getBoundingClientRect();
+  if (box.width <= 0 || box.height <= 0) return;
   svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
   const ring = $("#ring").getBoundingClientRect();
   const cx = ring.left - box.left + ring.width / 2;
@@ -1077,7 +1468,12 @@ function drawWires() {
     const ang = -0.55 + i * 0.55;
     const x2 = cx + Math.cos(Math.PI + ang) * R, y2 = cy + Math.sin(Math.PI + ang) * R;
     const mx = (x1 + x2) / 2;
-    paths += `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="url(#gL)" stroke-width="1.4" stroke-dasharray="4 4" opacity=".75"/>`;
+    const st = n.dataset.wireState || "idle";
+    const pf = n.dataset.subPf || "";
+    const raw = (PLAT[pf] && PLAT[pf].raw) || "#4c8dff";
+    const cls = "wire-path " + (st === "live" ? "wire-live" : st === "ready" ? "wire-ready" : st === "warn" ? "wire-warn" : "wire-idle") + (n.matches(":hover") ? " wire-hi" : "");
+    const strokeAttr = st === "live" ? ` stroke="${esc(raw)}"` : "";
+    paths += `<path data-wire-l="${i}" class="${cls}"${strokeAttr} style="--wc:${esc(raw)}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}"/>`;
   });
   document.querySelectorAll("#lane-r .key").forEach((n, i) => {
     const r = n.getBoundingClientRect();
@@ -1085,7 +1481,10 @@ function drawWires() {
     const ang = -0.55 + i * 0.55;
     const x2 = cx + Math.cos(ang) * R, y2 = cy + Math.sin(ang) * R;
     const mx = (x1 + x2) / 2;
-    paths += `<path d="M${x2},${y2} C${mx},${y2} ${mx},${y1} ${x1},${y1}" fill="none" stroke="url(#gR)" stroke-width="1.4" stroke-dasharray="4 4" opacity=".75"/>`;
+    const st = n.dataset.wireState || "idle";
+    const cls = "wire-path " + (st === "live" ? "wire-live" : "wire-idle") + (n.matches(":hover") ? " wire-hi" : "");
+    const strokeAttr = st === "live" ? ' stroke="url(#gR)"' : "";
+    paths += `<path data-wire-r="${i}" class="${cls}"${strokeAttr} style="--wc:#4c8dff" d="M${x2},${y2} C${mx},${y2} ${mx},${y1} ${x1},${y1}"/>`;
   });
 
   svg.innerHTML = `
@@ -1095,40 +1494,113 @@ function drawWires() {
     </defs>${paths}`;
 }
 
+function clamp01(v) { return Math.max(0, Math.min(1, Number(v) || 0)); }
+function fmtQuotaPct(rem01) { return `剩 ${Math.round(clamp01(rem01) * 100)}%`; }
+function quotaTone(rem01) {
+  const r = clamp01(rem01);
+  return r <= 0.05 ? "bad" : r <= 0.25 ? "warn" : "ok";
+}
+
 /* ───────── 渲染：模型 ───────── */
 function renderModels(d) {
-  S.models = (d.models && d.models.models) || [];
-  const aliases = (d.config && d.config.aliases) || [];
+  S.models = (d && d.models && d.models.models) || [];
+  const aliases = (d && d.config && d.config.aliases) || [];
+  const hasAuth = !!((d && d.auth) || []).length;
   const q = S.q.toLowerCase();
   const aliasSet = new Set(aliases);
+  const grp = S.group || "all";
   const list = S.models.filter((id) => {
-    if (S.group !== "all" && groupOf(id, aliases) !== S.group) return false;
+    if (grp !== "all" && groupOf(id, aliases) !== grp) return false;
     if (q && !id.toLowerCase().includes(q)) return false;
     return true;
   }).sort((a, b) => {
-    const d = (aliasSet.has(b) ? 1 : 0) - (aliasSet.has(a) ? 1 : 0);
-    return d !== 0 ? d : a.localeCompare(b);
+    const d0 = (aliasSet.has(b) ? 1 : 0) - (aliasSet.has(a) ? 1 : 0);
+    return d0 !== 0 ? d0 : a.localeCompare(b);
   });
-  $("#mcount").textContent = `${list.length} / ${S.models.length}`;
+
+  const tb = document.querySelector(".models .toolbar");
+  if (tb) tb.hidden = !S.models.length;
+  const pgBtn = document.querySelector(".models [data-pg-toggle]");
+  if (pgBtn) {
+    pgBtn.classList.toggle("on", !!S.pg.open);
+    pgBtn.textContent = S.pg.open ? "收起试调台 ▴" : "试调台 ▾";
+  }
+  $("#mcount").textContent = S.models.length ? `${list.length} / ${S.models.length}` : "—";
   const grid = $("#mgrid");
+
   if (!S.models.length) {
-    grid.innerHTML = `<div class="empty">网关未返回模型${d.models && d.models.error ? "：" + esc(d.models.error) : ""}</div>`;
+    if (!hasAuth) {
+      grid.innerHTML = `<div class="empty-state">
+        <div class="es-t">还没有订阅接入，网关暂无可转发模型</div>
+        <div class="es-d">接入任一平台订阅（Claude Max / ChatGPT / xAI Grok / Gemini）后，可用模型与短别名会自动同步到这里，点击即可实测连通性。</div>
+        <div class="es-act">
+          <button class="btn sm" type="button" data-empty-add>+ 添加账号</button>
+          <button class="btn sm" type="button" data-empty-alias>查看模型别名</button>
+          <button class="btn sm" type="button" data-empty-pg>${S.pg.open ? "收起试调台" : "打开试调台"}</button>
+        </div>
+      </div>`;
+      grid.querySelector("[data-empty-add]").onclick = openModal;
+      grid.querySelector("[data-empty-alias]").onclick = openAdv;
+      grid.querySelector("[data-empty-pg]").onclick = () => togglePlayground();
+    } else {
+      const syncStr = lastOkAt ? ` · 上次同步 ${fmtClock(lastOkAt)}` : "";
+      const errDetail = d && d.models && d.models.error
+        ? `上游响应：${esc(d.models.error)}`
+        : "已检测到登录凭证，但当前渠道还没有返回模型列表（可在「高级」核对模型别名或重新同步）。";
+      grid.innerHTML = `<div class="empty-state">
+        <div class="es-t">网关未返回模型${esc(syncStr)}</div>
+        <div class="es-d">${errDetail}</div>
+        <div class="es-act">
+          <button class="btn sm primary" type="button" data-empty-sync>重试同步</button>
+          <button class="btn sm" type="button" data-empty-alias>检查模型别名</button>
+          <button class="btn sm" type="button" data-empty-pg>${S.pg.open ? "收起试调台" : "打开试调台"}</button>
+        </div>
+      </div>`;
+      grid.querySelector("[data-empty-sync]").onclick = () => { refresh(); toast("正在重新同步模型…"); };
+      grid.querySelector("[data-empty-alias]").onclick = openAdv;
+      grid.querySelector("[data-empty-pg]").onclick = () => togglePlayground();
+    }
+    renderPlayground();
     return;
   }
+
+  if (!list.length) {
+    const cond = S.q || (grp !== "all" ? grp : "");
+    grid.innerHTML = `<div class="empty-state">
+      <div class="es-t">没有匹配「${esc(cond)}」的模型</div>
+      <div class="es-d">网关共返回 ${S.models.length} 个可用模型，当前筛选条件下无匹配项。</div>
+      <div class="es-act"><button class="btn sm" type="button" data-clear-filter>清空筛选</button></div>
+    </div>`;
+    grid.querySelector("[data-clear-filter]").onclick = () => {
+      S.group = "all"; S.q = "";
+      const qi = $("#q"); if (qi) qi.value = "";
+      document.querySelectorAll(".models .seg button").forEach((b) => b.classList.toggle("on", b.dataset.g === "all"));
+      renderModels(S.data);
+    };
+    renderPlayground();
+    return;
+  }
+
   grid.innerHTML = "";
   list.forEach((id) => {
     const isAlias = aliases.includes(id);
     const res = S.results[id];
     const n = el("div", "m" + (isAlias ? " alias" : "") + (res ? (res.ok ? " ok" : " fail") : ""));
+    const tokHint = res && res.tokens && res.tokens.out != null ? `${res.tokens.out} tok` : (res && res.model ? esc(res.model) : "");
     const sub = res
-      ? (res.ok ? `${res.ms}ms · ${esc(res.model)}` : `${res.status || ""} ${esc((res.error || "").slice(0, 46))}`)
+      ? (res.ok ? `✓ ${res.ms}ms${tokHint ? " · " + tokHint : ""}` : `✗ ${res.status || ""} ${esc((res.error || "").slice(0, 42))}`)
       : (isAlias ? "别名 · 点击测试" : "点击测试");
+    const replyHtml = (res && res.ok && res.text)
+      ? `<div class="m-reply" title="${esc(res.text)}">「${esc(res.text.slice(0, 52))}」</div>`
+      : "";
     n.innerHTML = `${isAlias ? '<span class="m-badge">ALIAS</span>' : ""}
       <div class="m-name">${esc(id)}</div>
-      <div class="m-sub">${sub}</div>`;
+      <div class="m-sub">${sub}</div>${replyHtml}`;
     n.onclick = () => testModel(id, n);
+    bindKeyClick(n, () => testModel(id, n));
     grid.appendChild(n);
   });
+  renderPlayground();
 }
 
 function goPlat(btn) {
@@ -1145,9 +1617,18 @@ async function testModel(id, node) {
       body: JSON.stringify({ model: id }),
     }).then((x) => x.json());
     S.results[id] = r;
-    node.classList.remove("busy");
+    node.classList.remove("busy", "ok", "fail");
     node.classList.add(r.ok ? "ok" : "fail");
-    sub.textContent = r.ok ? `${r.ms}ms · ${r.model}` : `${r.status || ""} ${(r.error || "").slice(0, 46)}`;
+    const tokHint = r.tokens && r.tokens.out != null ? `${r.tokens.out} tok` : (r.model || "");
+    sub.textContent = r.ok ? `✓ ${r.ms}ms${tokHint ? " · " + tokHint : ""}` : `✗ ${r.status || ""} ${(r.error || "").slice(0, 42)}`;
+    let rep = node.querySelector(".m-reply");
+    if (r.ok && r.text) {
+      if (!rep) { rep = el("div", "m-reply"); node.appendChild(rep); }
+      rep.title = r.text;
+      rep.textContent = `「${r.text.slice(0, 52)}」`;
+    } else if (rep) {
+      rep.remove();
+    }
     if (r.ok) {
       toast(`${id} ✓ ${r.ms}ms${r.tokens ? ` · ${r.tokens.in}→${r.tokens.out} tok` : ""}`, "ok");
     } else {
@@ -1156,6 +1637,118 @@ async function testModel(id, node) {
   } catch (e) {
     node.classList.remove("busy");
     sub.textContent = "请求失败";
+  }
+}
+
+function togglePlayground(prefModel) {
+  if (prefModel) {
+    S.pg.open = true;
+    S.pg.model = prefModel;
+  } else {
+    S.pg.open = !S.pg.open;
+  }
+  const tBtn = document.querySelector(".models [data-pg-toggle]");
+  if (tBtn) {
+    tBtn.classList.toggle("on", S.pg.open);
+    tBtn.textContent = S.pg.open ? "收起试调台 ▴" : "试调台 ▾";
+  }
+  const eBtn = document.querySelector("#mgrid [data-empty-pg]");
+  if (eBtn) eBtn.textContent = S.pg.open ? "收起试调台" : "打开试调台";
+  renderPlayground();
+}
+
+function renderPlayground() {
+  const dock = document.querySelector("[data-pg-dock]");
+  if (!dock) return;
+  if (!S.pg.open) { dock.hidden = true; return; }
+  dock.hidden = false;
+
+  const active = document.activeElement;
+  if (S.pg.busy || (active && dock.contains(active) && active.matches("[data-pg-prompt],[data-pg-model]"))) {
+    return;
+  }
+
+  const realModels = S.models || [];
+  const aliases = (S.data && S.data.config && S.data.config.aliases) || [];
+  const opts = realModels.length
+    ? realModels.slice().sort((a, b) => (aliases.includes(b) ? 1 : 0) - (aliases.includes(a) ? 1 : 0) || a.localeCompare(b))
+    : ["opus", "sonnet", "haiku", "codex", "grok"];
+  if (!S.pg.model || !opts.includes(S.pg.model)) S.pg.model = opts[0] || "opus";
+
+  const optHtml = opts.map((m) => `<option value="${esc(m)}"${m === S.pg.model ? " selected" : ""}>${esc(realModels.length ? m : m + "（未接入）")}</option>`).join("");
+  const last = S.pg.last;
+  let outHtml = "";
+  if (last) {
+    const hdLeft = last.ok
+      ? `✓ ${esc(last.model || S.pg.model)} · ${esc(String(last.ms || 0))}ms${last.tokens ? ` · ${esc(String(last.tokens.in ?? "-"))}→${esc(String(last.tokens.out ?? "-"))} tok` : ""}`
+      : `✗ 失败${last.ms ? " · " + esc(String(last.ms)) + "ms" : ""}`;
+    const txt = last.ok ? (last.text || "（模型返回空内容）") : (last.error || "请求失败");
+    outHtml = `<div class="pg-out">
+      <div class="pg-out-hd"><span style="color:${last.ok ? "#4ade80" : "#f87171"}">${hdLeft}</span>${last.ok && last.text ? '<button type="button" class="btn sm" data-pg-copy>复制回复</button>' : ""}</div>
+      <div class="pg-out-txt">${esc(txt)}</div>
+    </div>`;
+  }
+
+  dock.innerHTML = `<div class="pg-box">
+    <div class="pg-row">
+      <select class="pg-sel" data-pg-model>${optHtml}</select>
+      <input class="pg-in" type="text" data-pg-prompt placeholder="输入测试词（回车直接发送）" value="${esc(S.pg.prompt || "")}">
+      <button class="btn sm primary" type="button" data-pg-send>${S.pg.busy ? "请求中…" : "发送测试"}</button>
+      <button class="btn sm" type="button" data-pg-close>收起</button>
+    </div>
+    ${outHtml}
+  </div>`;
+
+  const sel = dock.querySelector("[data-pg-model]");
+  const inp = dock.querySelector("[data-pg-prompt]");
+  const sendBtn = dock.querySelector("[data-pg-send]");
+  const closeBtn = dock.querySelector("[data-pg-close]");
+  const cpBtn = dock.querySelector("[data-pg-copy]");
+  if (sel) sel.onchange = () => { S.pg.model = sel.value; };
+  if (inp) {
+    inp.oninput = () => { S.pg.prompt = inp.value; };
+    inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); runPlayground(); } };
+  }
+  if (sendBtn) sendBtn.onclick = runPlayground;
+  if (closeBtn) closeBtn.onclick = () => togglePlayground();
+  if (cpBtn && last && last.text) cpBtn.onclick = () => copyText(last.text, cpBtn);
+}
+
+async function runPlayground() {
+  if (S.pg.busy) return;
+  const dock = document.querySelector("[data-pg-dock]");
+  const sel = dock && dock.querySelector("[data-pg-model]");
+  const inp = dock && dock.querySelector("[data-pg-prompt]");
+  const model = (sel && sel.value) || S.pg.model || "opus";
+  const prompt = ((inp && inp.value) || S.pg.prompt || "用一句话介绍你自己，并确认链路正常。").trim();
+  if (!prompt) { toast("请输入测试内容", "warn"); if (inp) inp.focus(); return; }
+  S.pg.model = model;
+  S.pg.prompt = prompt;
+  S.pg.busy = true;
+  const sendBtn = dock && dock.querySelector("[data-pg-send]");
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = "请求中…"; }
+  try {
+    const r = await jpost("/api/test", { model, prompt, max_tokens: 512 });
+    S.pg.last = r;
+    S.results[model] = r;
+    toast(r.ok ? `${model} ✓ ${r.ms}ms` : `${model} ✗ ${(r.error || "").slice(0, 80)}`, r.ok ? "ok" : "bad");
+  } catch (e) {
+    S.pg.last = { ok: false, error: (e && e.message) || "请求失败" };
+    toast("试调请求异常", "bad");
+  } finally {
+    S.pg.busy = false;
+    renderPlayground();
+    if (S.data && S.models.length) {
+      // 同步刷新模型卡测试 badge
+      const cards = document.querySelectorAll("#mgrid .m");
+      cards.forEach((c) => {
+        const nm = c.querySelector(".m-name");
+        if (nm && nm.textContent === model && S.pg.last) {
+          c.classList.remove("ok", "fail");
+          c.classList.add(S.pg.last.ok ? "ok" : "fail");
+        }
+      });
+    }
   }
 }
 
@@ -1188,13 +1781,24 @@ function updateEventBadge(list) {
   if (cnt) cnt.textContent = list.length ? list.length + " 条" : "";
   const alerts = list.filter(isAlertEvent);
   const dot = $("#alertdot");
+  const num = $("#ad-n");
   if (!dot) return;
   if (alerts.length) {
     dot.hidden = false;
-    $("#ad-n").textContent = alerts.length;
-    dot.title = "有 " + alerts.length + " 条需要留意的事件：" + (alerts[0].text || "").slice(0, 40);
+    dot.classList.remove("calm");
+    if (num) {
+      num.hidden = false;
+      num.textContent = alerts.length >= 10 ? "9+" : String(alerts.length);
+    }
+    dot.title = "有 " + alerts.length + " 条需要留意的告警：" + (alerts[0].text || "").slice(0, 48) + "（点击查看）";
+  } else if (list.length) {
+    dot.hidden = false;
+    dot.classList.add("calm");
+    if (num) { num.textContent = ""; num.hidden = true; }
+    dot.title = "最近 " + list.length + " 条运行事件（无异常告警）· 点击查看";
   } else {
     dot.hidden = true;
+    dot.classList.remove("calm");
   }
 }
 
@@ -1208,14 +1812,31 @@ function openEventLog() {
 function renderEvents(d) {
   const box = $("#events"); const list = d.events || [];
   updateEventBadge(list);
+  const fold = $("#evfold");
+  const hint = fold ? fold.querySelector(".evfold-hint") : null;
+  if (hint) {
+    const isOpen = !!(fold && fold.open);
+    if (list.length) {
+      const top = list[0];
+      const latestTm = fmtLocal(top.t_last || top.t);
+      const latestTxt = String(top.text || "").slice(0, 44);
+      hint.innerHTML = `<span class="ev-dot ${esc(top.kind || "")}" style="margin:0"></span>
+        <span class="evfold-sum">${esc(top.src || "")} · ${esc(latestTxt)}</span>
+        <span class="evfold-tm">${esc(latestTm)}</span>
+        <span class="evfold-cta">${isOpen ? "收起 ▴" : "查看 ▾"}</span>`;
+    } else {
+      hint.innerHTML = `<span class="evfold-sum">暂无自愈或凭证事件</span><span class="evfold-cta">${isOpen ? "收起 ▴" : "展开 ▾"}</span>`;
+    }
+  }
   if (!list.length) { box.innerHTML = `<div class="empty">暂无事件</div>`; return; }
   box.innerHTML = "";
   list.slice(0, 40).forEach((e) => {
     const n = el("div", "ev");
-    const span = (e.n > 1 && e.t_last && e.t_last !== e.t) ? ` → ${esc(e.t_last.slice(11))}` : "";
-    const badge = e.n > 1 ? ` <span class="tag">×${e.n}</span>` : "";
-    n.innerHTML = `<div class="ev-dot ${e.kind}"></div>
-      <div class="ev-b"><div class="ev-t">${esc((e.t || "").slice(11) || e.t || "")}${span} · ${esc(e.src)}</div>
+    const tStart = fmtLocal(e.t);
+    const span = (e.n > 1 && e.t_last && e.t_last !== e.t) ? ` → ${esc(fmtClock(e.t_last))}` : "";
+    const badge = e.n > 1 ? ` <span class="tag">×${esc(String(e.n))}</span>` : "";
+    n.innerHTML = `<div class="ev-dot ${esc(e.kind || "")}"></div>
+      <div class="ev-b"><div class="ev-t">${esc(tStart)}${span} · ${esc(e.src)}</div>
       <div class="ev-x">${esc(e.text)}${badge}</div></div>`;
     box.appendChild(n);
   });
@@ -1224,27 +1845,48 @@ function renderEvents(d) {
 
 /* ───────── API 板块 ───────── */
 function apiBase(d) {
-  const host = (d.lan_ip && d.lan_ip !== "127.0.0.1") ? d.lan_ip : "127.0.0.1";
-  return { host, port: d.gateway.port, anth: `http://${host}:${d.gateway.port}`,
+  const gwHost = (d && d.gateway && d.gateway.host) || (d && d.config && d.config.host) || "0.0.0.0";
+  const isLan = gwHost === "0.0.0.0" || gwHost === "";
+  const host = (isLan && d.lan_ip && d.lan_ip !== "127.0.0.1") ? d.lan_ip : "127.0.0.1";
+  return { host, port: d.gateway.port, isLan, gwHost,
+           anth: `http://${host}:${d.gateway.port}`,
            oai: `http://${host}:${d.gateway.port}/v1` };
 }
 
 function copyBtn(text, label) {
   const b = document.createElement("button");
   b.className = "btn sm"; b.textContent = label || "复制";
-  b.onclick = async () => {
-    try { await navigator.clipboard.writeText(text); toast("已复制 " + (text.length > 46 ? text.slice(0, 46) + "…" : text), "ok"); }
-    catch (e) { toast("复制失败", "bad"); }
-  };
+  b.onclick = () => copyText(text, b);
   return b;
+}
+
+async function switchHostMode(targetHost, wrapEl) {
+  const cur = ((S.data && S.data.gateway && S.data.gateway.host) || (S.data && S.data.config && S.data.config.host) || "0.0.0.0");
+  if (targetHost === cur) return;
+  const btns = wrapEl ? [...wrapEl.querySelectorAll("button")] : [];
+  btns.forEach((b) => { b.disabled = true; });
+  toast(targetHost === "127.0.0.1" ? "正在切换为仅本机访问并重启网关…" : "正在开启局域网共享并重启网关…");
+  try {
+    const r = await jpost("/api/settings", { host: targetHost });
+    if (r && r.ok) {
+      toast(targetHost === "127.0.0.1" ? "已切换为仅本机（127.0.0.1），网关已就绪" : "已开启局域网共享（0.0.0.0），网关已就绪", "ok");
+      await refresh();
+    } else {
+      toast((r && r.error) || "切换失败", "bad");
+      btns.forEach((b) => { b.disabled = false; });
+    }
+  } catch (e) {
+    toast("切换失败：" + (e && e.message ? e.message : String(e)), "bad");
+    btns.forEach((b) => { b.disabled = false; });
+  }
 }
 
 function renderApiEndpoints(d) {
   const box = $("#api-ep"); if (!box) return;
   const b = apiBase(d);
-  const host = (d.config && d.config.host) || "";
-  const lan = host === "0.0.0.0" || host === "";
-  const pw = !!(d.auth && d.auth.enabled);
+  const host = b.gwHost;
+  const lan = b.isLan;
+  const pw = !!(S.authEnabled || (d.ui_auth && d.ui_auth.enabled) || (d.auth && !Array.isArray(d.auth) && d.auth.enabled));
   box.innerHTML = "";
   [[ "Anthropic", b.anth ], [ "OpenAI", b.oai ]].forEach(([k, v]) => {
     const row = el("div", "ep-row");
@@ -1255,10 +1897,33 @@ function renderApiEndpoints(d) {
   const st = el("div", "ep-st");
   st.innerHTML = `
     <span class="ep-tag ok">监听 ${esc(host || "0.0.0.0")}:${esc(String(b.port))}</span>
-    <span class="ep-tag ${lan ? "ok" : "warn"}">${lan ? "局域网可达" : "仅本机"}</span>
+    <span class="ep-tag ${lan ? "warn" : "ok"}">${lan ? "局域网可达" : "仅本机"}</span>
     <span class="ep-tag ${pw ? "ok" : "warn"}">${pw ? "访问密码 已设" : "访问密码 未设"}</span>
     <span class="ep-tag">模型 ${((d.models && d.models.models) || []).length} 个</span>`;
   box.appendChild(st);
+
+  const ctrl = el("div", "ep-ctrl");
+  const msg = lan
+    ? `<span>局域网内持有 <code>sk-local-*</code> 的设备均可消耗你的订阅额度；单机自用可切为「仅本机」。</span>`
+    : `<span>当前仅允许本机进程连接（<code>127.0.0.1:${esc(String(b.port))}</code>），局域网其他设备无法访问。</span>`;
+  ctrl.innerHTML = `
+    <div class="ep-ctrl-msg${lan ? " lan" : ""}">${msg}</div>
+    <div class="ep-ctrl-acts">
+      ${lan ? '<button class="btn sm" type="button" data-ep-keys>管理设备密钥 ↓</button>' : ""}
+      ${(lan && !pw) ? '<button class="btn sm" type="button" data-ep-pw>设面板密码</button>' : ""}
+      <div class="seg" role="group" aria-label="网关监听范围">
+        <button type="button" class="${!lan ? "on" : ""}" data-set-host="127.0.0.1">仅本机</button>
+        <button type="button" class="${lan ? "on" : ""}" data-set-host="0.0.0.0">局域网共享</button>
+      </div>
+    </div>`;
+  const kBtn = ctrl.querySelector("[data-ep-keys]");
+  if (kBtn) kBtn.onclick = jumpToKeys;
+  const pwBtn = ctrl.querySelector("[data-ep-pw]");
+  if (pwBtn) pwBtn.onclick = async () => { await openSettings(); setTimeout(() => { const i = $("#set-pw"); if (i) i.focus(); }, 80); };
+  ctrl.querySelectorAll("[data-set-host]").forEach((btn) => {
+    btn.onclick = () => switchHostMode(btn.dataset.setHost, ctrl);
+  });
+  box.appendChild(ctrl);
 }
 
 const GEN_CLIENTS = [
@@ -1299,36 +1964,61 @@ function renderApiGen(d) {
   const models = ((d.models && d.models.models) || []).slice();
   const PREF = ["opus", "sonnet", "haiku", "gpt", "codex", "grok", "grok-fast", "gemini", "gemini-flash"];
   const aliasFirst = PREF.filter((p) => models.includes(p));
-  const modelOpts = aliasFirst.length ? aliasFirst.concat(models.filter((m) => !aliasFirst.includes(m))) : models;
+  const fallbackAliases = ((d.config && d.config.aliases) || []).length ? d.config.aliases : ["opus", "sonnet", "haiku"];
+  const hasRealModels = models.length > 0;
+  const modelOpts = hasRealModels
+    ? (aliasFirst.length ? aliasFirst.concat(models.filter((m) => !aliasFirst.includes(m))) : models)
+    : fallbackAliases;
   if (!keys.length) {
     box.innerHTML = `<div class="empty-box"><div class="e1">还没有 Key</div><div class="e2">先在上面加一把</div></div>`;
     return;
   }
-  if (!S.gen) S.gen = { c: "claude-code", k: 0, m: aliasFirst[0] || models[0] || "opus" };
+  if (!S.gen) S.gen = { c: "claude-code", k: 0, m: aliasFirst[0] || models[0] || modelOpts[0] || "opus" };
   const g = S.gen;
+  if (!modelOpts.includes(g.m)) g.m = modelOpts[0] || "opus";
   if (g.k >= keys.length) g.k = 0;
   const key = keys[g.k].key;
-  const snippet = genSnippet(GEN_CLIENTS.find(x => x[0] === g.c)[2], b, key, g.m);
+  const kind = GEN_CLIENTS.find(x => x[0] === g.c)[2];
+  const realSnippet = genSnippet(kind, b, key, g.m);
+  const viewSnippet = S.genReveal ? realSnippet : genSnippet(kind, b, maskSecretPreview(key), g.m);
 
   box.innerHTML = "";
   const bar = el("div", "gen-row");
   bar.innerHTML = `
     <div class="gen-f"><label>客户端</label><select id="gen-c">${GEN_CLIENTS.map(([v, n]) => `<option value="${v}"${v === g.c ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></div>
     <div class="gen-f"><label>用哪把 Key</label><select id="gen-k">${keys.map((k, i) => `<option value="${i}"${i === g.k ? " selected" : ""}>${esc(k.label || k.masked)}</option>`).join("")}</select></div>
-    <div class="gen-f"><label>模型</label><select id="gen-m">${modelOpts.map(m => `<option value="${esc(m)}"${m === g.m ? " selected" : ""}>${esc(m)}</option>`).join("")}</select></div>`;
+    <div class="gen-f"><label>模型${hasRealModels ? "" : "（预设别名）"}</label><select id="gen-m">${modelOpts.map(m => `<option value="${esc(m)}"${m === g.m ? " selected" : ""}>${esc(hasRealModels ? m : m + "（接入后可用）")}</option>`).join("")}</select></div>`;
   box.appendChild(bar);
-  const pre = el("pre", "gen-code"); pre.textContent = snippet;
-  box.appendChild(pre);
+  const codeWrap = el("div", "gen-code-wrap");
+  const pre = el("pre", "gen-code"); pre.textContent = viewSnippet;
+  const eyeBtn = el("button", "gen-eye" + (S.genReveal ? " on" : ""));
+  eyeBtn.type = "button";
+  eyeBtn.dataset.genEye = "1";
+  eyeBtn.textContent = S.genReveal ? "隐藏明文" : "显示明文";
+  eyeBtn.onclick = () => { S.genReveal = !S.genReveal; renderApiGen(S.data); };
+  codeWrap.appendChild(pre);
+  codeWrap.appendChild(eyeBtn);
+  box.appendChild(codeWrap);
   const act = el("div", "gen-act");
-  act.appendChild(copyBtn(snippet, "复制这段"));
+  const priv = el("span", "gen-priv-hint");
+  priv.textContent = S.genReveal ? "正在显示完整密钥，截屏请注意遮挡" : "预览已打码防窥 · 复制与下载自动填入完整密钥";
+  act.appendChild(priv);
+  const cpBtn = document.createElement("button");
+  cpBtn.className = "btn sm"; cpBtn.type = "button"; cpBtn.textContent = "复制这段";
+  cpBtn.onclick = async () => {
+    try { await navigator.clipboard.writeText(realSnippet); flashCopied(cpBtn); toast("已复制接入片段（含完整密钥）", "ok"); }
+    catch (e) { toast("复制失败", "bad"); }
+  };
+  act.appendChild(cpBtn);
   const dl = document.createElement("button");
-  dl.className = "btn sm"; dl.textContent = "存成 .env";
+  dl.className = "btn sm"; dl.type = "button"; dl.textContent = "存成 .env";
   dl.onclick = () => {
-    const blob = new Blob([snippet], { type: "text/plain" });
+    const blob = new Blob([realSnippet], { type: "text/plain" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = (S.gen.c || "gateway") + ".env";
     a.click(); URL.revokeObjectURL(a.href);
+    toast("已保存 .env（含完整密钥）", "ok");
   };
   act.appendChild(dl);
   box.appendChild(act);
@@ -1338,35 +2028,107 @@ function renderApiGen(d) {
   box.querySelector("#gen-m").onchange = (e) => { S.gen.m = e.target.value; renderApiGen(S.data); };
 }
 
+/* 统一口径：兼容读取 d.stats / d.usage.stats / d.logs，成功率仅统计真实对话请求 */
+function calcTrafficStats(d) {
+  const st = (d && d.stats) || (d && d.usage && d.usage.stats) || {};
+  const lg = (d && d.logs) || st || {};
+  const slots = (d && d.usage && d.usage.hist && d.usage.hist.slots) || [];
+  const hist24h = slots.reduce((a, b) => a + (Number(b) || 0), 0);
+  const chatCalls = st.chats != null ? Number(st.chats) : (lg.chat_calls != null ? Number(lg.chat_calls) : hist24h);
+  const calls24h = st.calls != null ? Number(st.calls) : (hist24h || chatCalls);
+  const sampled = lg.sampled != null ? Number(lg.sampled) : calls24h;
+  const chatOkRate = chatCalls > 0
+    ? (lg.chat_ok_rate != null ? lg.chat_ok_rate : (st.success_rate != null ? st.success_rate : lg.ok_rate))
+    : null;
+  const toSec = (v, msHint) => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!isFinite(n)) return null;
+    return msHint ? +(n / 1000).toFixed(2) : +n.toFixed(2);
+  };
+  const p50 = lg.p50 != null ? toSec(lg.p50, false) : toSec(st.p50_ms != null ? st.p50_ms : st.p50, st.p50_ms != null || Number(st.p50) > 60);
+  const p95 = lg.p95 != null ? toSec(lg.p95, false) : toSec(st.p95_ms != null ? st.p95_ms : st.p95, st.p95_ms != null || Number(st.p95) > 60);
+  return { sampled, calls24h, chatCalls, chatOkRate, probeOkRate: lg.ok_rate, p50, p95 };
+}
+
 function renderApiHealth(d) {
   const box = $("#api-health"); if (!box) return;
-  const st = d.stats || {};
+  const tf = calcTrafficStats(d);
   box.innerHTML = "";
   const hl = el("div", "hl-row");
-  hl.innerHTML = `
-    <div class="hl-i"><span class="n">${esc(String(st.calls || 0))}</span><span class="l">今日请求</span></div>
-    <div class="hl-i"><span class="n">${esc(String(st.chats || 0))}</span><span class="l">对话</span></div>
-    <div class="hl-i"><span class="n">${st.success_rate != null ? esc(st.success_rate + "%") : "—"}</span><span class="l">成功率</span></div>
-    <div class="hl-i"><span class="n">${st.p50 ? esc((st.p50 / 1000).toFixed(1) + "s") : "—"}</span><span class="l">p50</span></div>
-    <div class="hl-i"><span class="n">${st.p95 ? esc((st.p95 / 1000).toFixed(1) + "s") : "—"}</span><span class="l">p95</span></div>`;
+  if (!tf.chatCalls) {
+    hl.innerHTML = `<div class="hl-empty"><span>暂无请求</span><span class="dim">${
+      tf.sampled
+        ? `日志仅含 ${esc(String(tf.sampled))} 条管理/模型探活记录，已排除在对话成功率统计外`
+        : "发起第一次客户端对话后，这里显示真实请求数、成功率与延迟分位"
+    }</span></div>`;
+  } else {
+    hl.innerHTML = `
+      <div class="hl-i"><span class="n">${esc(String(tf.calls24h))}</span><span class="l">24h 对话</span></div>
+      <div class="hl-i"><span class="n">${esc(String(tf.chatCalls))}</span><span class="l">对话样本</span></div>
+      <div class="hl-i"><span class="n">${tf.chatOkRate != null ? esc(tf.chatOkRate + "%") : "—"}</span><span class="l">成功率</span></div>
+      <div class="hl-i"><span class="n">${tf.p50 != null ? esc(tf.p50 + "s") : "—"}</span><span class="l">p50</span></div>
+      <div class="hl-i"><span class="n">${tf.p95 != null ? esc(tf.p95 + "s") : "—"}</span><span class="l">p95</span></div>`;
+  }
   box.appendChild(hl);
 
   const up = el("div", "hl-up");
   const q = d.quota || {};
-  [["claude", "Claude Max"], ["codex", "ChatGPT"], ["xai", "xAI Grok"], ["gemini", "Gemini"]].forEach(([k, name]) => {
+  const authTypes = new Set(((d && d.auth) || []).filter((a) => !a.disabled).map((a) => a.type));
+  [
+    ["claude", "Claude Max", "claude"],
+    ["codex", "ChatGPT", "codex"],
+    ["xai", "xAI Grok", "xai"],
+    ["gemini", "Gemini", "antigravity"],
+  ].forEach(([k, name, ch]) => {
     const v = q[k] || {};
-    const ok = v.ok;
-    const tag = el("span", "ep-tag " + (ok ? "ok" : "warn"));
-    let txt = name;
-    if (ok) {
-      if (k === "claude" && v.d7) txt += ` ✓ 7天已用 ${Math.round((v.d7.used || 0) * 100)}%`;
-      else if (k === "codex" && v.primary) txt += ` ✓ 已用 ${Math.round(v.primary.used || 0)}%`;
-      else if (k === "gemini") txt += ` ✓ ${v.tier || "已连接"}`;
-      else txt += " ✓";
+    const hasAuth = authTypes.has(ch);
+    let tone = "warn", shortTxt = "", tip = v.note || "";
+    if (v.ok) {
+      if (k === "claude" && v.d7) {
+        const used = clamp01(v.d7.used);
+        const rem = 1 - used;
+        tone = quotaTone(rem);
+        shortTxt = fmtQuotaPct(rem);
+        const rs = v.d7.reset_at ? fmtDur(Math.round((Date.parse(v.d7.reset_at) - Date.now()) / 1000)) + "后重置" : "";
+        tip = `7 天窗口已用 ${Math.round(used * 100)}%${rs ? " · " + rs : ""}`;
+      } else if (k === "codex" && v.primary) {
+        const used = clamp01(v.primary.used);
+        const rem = 1 - used;
+        tone = quotaTone(rem);
+        shortTxt = fmtQuotaPct(rem);
+        const rs = v.primary.reset_at ? fmtDur(Math.round((Date.parse(v.primary.reset_at) - Date.now()) / 1000)) + "后重置" : "";
+        tip = `已用 ${Math.round(used * 100)}%${rs ? " · " + rs : ""}${hasAuth ? "" : "（读自本机 ~/.codex，网关尚未导入凭证）"}`;
+      } else if (k === "gemini") {
+        tone = "ok";
+        shortTxt = v.tier ? String(v.tier).slice(0, 10) : "已连接";
+        tip = v.note || "已连接";
+      } else {
+        tone = "ok";
+        shortTxt = "已连接";
+      }
     } else {
-      txt += " ⚠ " + (v.note ? String(v.note).slice(0, 16) : "未取到额度");
+      const note = String(v.note || "");
+      if (/未开放额度/.test(note)) {
+        tone = hasAuth ? "ok" : "";
+        shortTxt = hasAuth ? "已接入" : "无额度接口";
+      } else if (!hasAuth || /还没有接入|没有.*凭证/.test(note)) {
+        tone = "";
+        shortTxt = "未接入";
+      } else if (/没连上|超时|波动/.test(note)) {
+        tone = "warn";
+        shortTxt = "连接波动";
+      } else {
+        tone = "warn";
+        shortTxt = "待检查";
+      }
+      tip = note || "未取到额度";
     }
-    tag.textContent = txt;
+    const tag = el("span", "ep-tag clickable" + (tone ? " " + tone : ""));
+    tag.textContent = `${name} · ${shortTxt}`;
+    tag.title = `${tip}（点击查看详情）`;
+    tag.onclick = () => openChannel(ch);
+    bindKeyClick(tag, () => openChannel(ch));
     up.appendChild(tag);
   });
   box.appendChild(up);
@@ -1378,16 +2140,17 @@ function renderApiHealth(d) {
   act.appendChild(b1);
   const b2 = document.createElement("button");
   b2.className = "btn sm"; b2.textContent = "打开完整体检";
-  b2.onclick = () => runDoctor("deep");
+  b2.onclick = () => { $("#modal-doc").classList.add("on"); runDoctor("deep"); };
   act.appendChild(b2);
   box.appendChild(act);
 }
 
 function renderKV(d) {
   const g = d.gateway, c = d.config;
+  const tf = calcTrafficStats(d);
   const rows = [
     ["监听", `${g.host}:${g.port}`],
-    ["局域网", `http://${d.lan_ip || "—"}:${g.port}`],
+    ["局域网", (g.host === "127.0.0.1") ? "已关闭（仅监听本机）" : `http://${d.lan_ip || "—"}:${g.port}`],
     ["本机", `http://127.0.0.1:${g.port}`],
     ["出口代理", c.proxy_url],
     ["配置版本", "v" + g.config_version],
@@ -1395,12 +2158,12 @@ function renderKV(d) {
     ["管理 API", !c.mgmt_key_set ? "未启用" : (String(c.mgmt_remote) === "true" ? "已启用 · 允许远程" : "已配置 · 仅本机")],
     ["凭证目录", c.auth_dir],
     ["凭证数", (d.auth || []).length + " 个"],
-    ["调用样本", (d.logs.sampled || 0) + " 条" + (d.logs.chat_calls ? ` · ${d.logs.chat_calls} 次对话` : "")],
-    ["成功率", d.logs.ok_rate != null ? d.logs.ok_rate + "%" : "—"],
-    ["延迟 p50/p95", d.logs.p50 != null ? `${d.logs.p50}s / ${d.logs.p95}s` : "—"],
-    ["最近请求", d.logs.last_at || "—"],
+    ["调用样本", tf.chatCalls ? `${tf.chatCalls} 次对话（采样 ${tf.sampled} 条）` : (tf.sampled ? `暂无对话（探活 ${tf.sampled} 条）` : "暂无请求")],
+    ["成功率", tf.chatOkRate != null ? tf.chatOkRate + "%" : "暂无请求"],
+    ["延迟 p50/p95", tf.p50 != null ? `${tf.p50}s / ${tf.p95}s` : "—"],
+    ["最近请求", d.logs && d.logs.last_at ? fmtLocal(d.logs.last_at) : "—"],
     ["watchdog", d.launchd.watchdog.loaded ? "已装载" : "未装载"],
-    ["更新于", d.now.replace("T", " ")],
+    ["更新于", d.now ? `${fmtLocal(d.now)}（${ago(d.now)}）` : "—"],
   ];
   $("#kv").innerHTML = rows.map(([k, v]) =>
     `<div class="kvcell"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join("");
@@ -1414,7 +2177,7 @@ const CLIENTS = [
 ];
 
 function renderClients(d) {
-  const host = (d.lan_ip && d.lan_ip !== "127.0.0.1") ? d.lan_ip : "127.0.0.1";
+  const host = apiBase(d).host;
   const port = d.gateway.port;
   const box = $("#clients");
   box.innerHTML = "";
@@ -1426,12 +2189,12 @@ function renderClients(d) {
       : `http://${host}:${port}`;
     const row = el("div", "cli-row");
     let act = "";
-    if (c.manual) act = `<button class="btn sm" data-guide="${c.id}">查看填法</button>`;
-    else if (c.wired) act = `<span class="tag ok">已接入</span><button class="btn sm" data-unwire="${c.id}">还原</button>`;
-    else act = `<button class="btn sm primary" data-wire="${c.id}">一键接入</button>`;
+    if (c.manual) act = `<button class="btn sm" data-guide="${esc(c.id)}">查看填法</button>`;
+    else if (c.wired) act = `<span class="tag ok">已接入</span><button class="btn sm" data-unwire="${esc(c.id)}">还原</button>`;
+    else act = `<button class="btn sm primary" data-wire="${esc(c.id)}">一键接入</button>`;
     row.innerHTML = `
       <div class="cli-name">${esc(c.name)}${c.exists ? "" : ' <span class="tag" style="font-size:9px">未装</span>'}</div>
-      <div class="cli-proto"><span class="tag ${c.protocol === "OpenAI" ? "" : "ok"}">${c.protocol}</span></div>
+      <div class="cli-proto"><span class="tag ${c.protocol === "OpenAI" ? "" : "ok"}">${esc(c.protocol)}</span></div>
       <div class="cli-url" title="${esc(url)}">${esc(url)}</div>
       <div class="cli-act">${act}</div>`;
     const w = row.querySelector("[data-wire]");
@@ -1454,10 +2217,8 @@ function renderClients(d) {
       <div class="cli-proto"><span class="tag ${proto === "openai" ? "" : "ok"}">${proto === "openai" ? "OpenAI" : "Anthropic"}</span></div>
       <div class="cli-url" title="${esc(url)}">${esc(url)}</div>
       <button class="btn sm">复制</button>`;
-    row.querySelector("button").onclick = async () => {
-      try { await navigator.clipboard.writeText(url); toast("已复制 " + url, "ok"); }
-      catch (e) { toast("复制失败", "bad"); }
-    };
+    const cp = row.querySelector("button");
+    cp.onclick = () => copyText(url, cp);
     box.appendChild(row);
   });
 }
@@ -1484,7 +2245,7 @@ async function wireClient(id, btn) {
 }
 
 async function unwireClient(id) {
-  if (!confirm("还原到接入前的配置？（会覆盖当前该客户端的网关设置）")) return;
+  if (!(await uiConfirm({ title: "还原客户端配置", body: "将还原到接入前备份的配置文件，覆盖当前网关设置。确定继续？", okText: "确认还原" }))) return;
   const r = await jpost("/api/clients/unwire", { id });
   toast(r.ok ? (r.note || "已还原") : (r.error || "还原失败"), r.ok ? "ok" : "bad");
   if (r.ok) refresh();
@@ -1493,48 +2254,94 @@ async function unwireClient(id) {
 function showGuide(id, data) {
   const c = (S.clients || []).find((x) => x.id === id) || {};
   const base = (data && data.base) || c.base || "";
-  const key = (data && data.key) || ((S.keys || [])[0] || {}).key || "（在下面的设备 Key 里复制）";
+  const key = (data && data.key) || ((S.keys || [])[0] || {}).key || "";
   const steps = (data && data.steps) || [
     "打开 dsh → 设置 → 模型 → 添加提供方",
     "选「自定义模型 API」",
     "协议选 Anthropic Messages",
-    "地址填 " + base,
-    "Key 填 " + key,
-    "模型填 opus，保存",
+    "地址填下方接口地址",
+    "密钥填下方访问密钥，模型填 opus 后保存",
   ];
-  alert("手动填法：\n\n" + steps.map((x, i) => (i + 1) + ". " + x).join("\n"));
+  uiGuide({ title: (c.name || "dsh") + " · 手动接入填法", base, key, model: "opus", steps });
 }
 
 /* ───────── 设备 Key 管理 ───────── */
+function startInlineKeyRename(row, k) {
+  const curLbl = row.querySelector(".lbl");
+  if (!curLbl) return;
+  const oldIn = curLbl.querySelector(".key-lbl-in");
+  if (oldIn) { oldIn.focus(); return; }
+  S.editingKey = k.key;
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "key-lbl-in";
+  inp.maxLength = 40;
+  inp.placeholder = "输入设备备注，回车保存";
+  inp.value = k.label || "";
+  curLbl.textContent = "";
+  curLbl.appendChild(inp);
+  inp.focus();
+  inp.select();
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    S.editingKey = null;
+    const v = inp.value.trim();
+    const prev = (k.label || "").trim();
+    if (!save || v === prev) {
+      curLbl.textContent = prev || "（无备注）";
+      return;
+    }
+    curLbl.textContent = v || "（无备注）";
+    try {
+      const r = await jpost("/api/keys/label", { key: k.key, label: v });
+      toast(r.ok ? "备注已更新" : (r.error || "更新失败"), r.ok ? "ok" : "bad");
+      if (r.ok) refresh();
+      else curLbl.textContent = prev || "（无备注）";
+    } catch (e) {
+      curLbl.textContent = prev || "（无备注）";
+      toast("备注保存失败", "bad");
+    }
+  };
+  inp.onclick = (e) => e.stopPropagation();
+  inp.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+  };
+  inp.onblur = () => finish(true);
+}
+
 function renderKeys() {
   const box = $("#keys"); if (!box) return;
+  if (S.editingKey && box.querySelector(".key-lbl-in")) return;
   const ks = S.keys || [];
   box.innerHTML = "";
   ks.forEach((k) => {
     const row = el("div", "keyrow");
     row.innerHTML = `
       <div class="k">${esc(k.masked)}</div>
-      <div class="lbl" title="点一下改备注">${esc(k.label || "（无备注）")}</div>
+      <div class="lbl" title="点一下直接修改备注">${esc(k.label || "（无备注）")}</div>
       <div class="acts">
         <button class="btn sm" data-copy>复制</button>
         <button class="btn sm" data-rename>改名</button>
         <button class="btn sm danger" data-del>删除</button>
       </div>`;
-    row.querySelector("[data-copy]").onclick = async () => {
-      try { await navigator.clipboard.writeText(k.key); toast("已复制完整 Key", "ok"); }
+    const cpKey = row.querySelector("[data-copy]");
+    cpKey.onclick = async () => {
+      try { await navigator.clipboard.writeText(k.key); flashCopied(cpKey); toast("已复制完整 Key", "ok"); }
       catch (e) { toast("复制失败", "bad"); }
     };
-    const rename = async () => {
-      const v = prompt("这把 Key 的备注（用在哪台设备上）：", k.label || "");
-      if (v === null) return;
-      const r = await jpost("/api/keys/label", { key: k.key, label: v });
-      toast(r.ok ? "备注已更新" : (r.error || "失败"), r.ok ? "ok" : "bad");
-      if (r.ok) refresh();
-    };
+    const rename = () => startInlineKeyRename(row, k);
     row.querySelector("[data-rename]").onclick = rename;
     row.querySelector(".lbl").onclick = rename;
     row.querySelector("[data-del]").onclick = async () => {
-      if (!confirm(`删掉这把 Key？\n\n${k.label || k.masked}\n\n用它配置的设备会立刻 401。`)) return;
+      if (!(await uiConfirm({
+        title: "吊销访问密钥",
+        body: "确定删除密钥「" + (k.label || k.masked) + "」？\n正在使用这把密钥的设备会立即返回 401。",
+        okText: "确认删除",
+        danger: true,
+      }))) return;
       const r = await jpost("/api/keys/del", { key: k.key });
       if (r.ok) {
         const async = r.restart && r.restart.async;
@@ -1555,15 +2362,24 @@ function renderKeys() {
   $("#key-count").textContent = ks.length ? `· ${ks.length} 把` : "";
   const add = $("#btn-addkey");
   if (add) add.onclick = async () => {
-    const label = prompt("这把 Key 给哪台设备用？（备注，可留空）", "设备 " + (ks.length + 1));
+    const label = await uiPrompt({
+      title: "新增访问密钥",
+      desc: "建议每台设备独立一把密钥，泄露时只需单独吊销。",
+      placeholder: "例如：MacBook / iPhone / Cursor",
+      defaultValue: "设备 " + (ks.length + 1),
+      okText: "生成并复制密钥",
+      allowEmpty: true,
+    });
     if (label === null) return;
     add.disabled = true; add.textContent = "生成中…";
-    const r = await jpost("/api/keys/add", { label });
-    if (r.ok) {
-      toast("已生成 " + r.masked + "，网关已重启", "ok");
-      await navigator.clipboard.writeText(r.key).catch(() => {});
-      refresh();
-    } else { toast(r.error || "失败", "bad"); add.disabled = false; add.textContent = "+ 新增 Key"; }
+    try {
+      const r = await jpost("/api/keys/add", { label });
+      if (r.ok) {
+        toast("已生成 " + r.masked + "，网关已重启", "ok");
+        await navigator.clipboard.writeText(r.key).catch(() => {});
+        refresh();
+      } else { toast(r.error || "失败", "bad"); add.disabled = false; add.textContent = "+ 新增 Key"; }
+    } catch (e) { toast("生成失败", "bad"); add.disabled = false; add.textContent = "+ 新增 Key"; }
   };
 }
 
@@ -1614,7 +2430,12 @@ async function saveGemini() {
   const btn = $("#gem-save");
   const raw = ($("#gem-key").value || "").trim();
   const keys = raw ? raw.split(/[\s,]+/).filter(Boolean) : [];
-  if (!keys.length && !confirm("没填 Key，会清空已配置的 Gemini。继续？")) return;
+  if (!keys.length && !(await uiConfirm({
+    title: "清空 Gemini 密钥",
+    body: "当前输入为空，保存后将移除网关中已配置的 Gemini API Key 并重启网关。继续？",
+    okText: "清空并重启",
+    danger: true,
+  }))) return;
   btn.disabled = true; btn.textContent = "重启中…";
   try {
     const r = await jpost("/api/gemini/set", { keys });
@@ -1667,9 +2488,10 @@ function renderDoctor(d) {
   box.innerHTML = "";
   (d.items || []).forEach((it) => {
     const row = el("div", "doc-item");
-    const mk = DOC_MARK[it.level] || "?";
+    const lvl = DOC_MARK[it.level] ? it.level : "skip";
+    const mk = DOC_MARK[lvl] || "?";
     row.innerHTML = `
-      <div class="doc-mark ${it.level}">${mk}</div>
+      <div class="doc-mark ${esc(lvl)}">${esc(mk)}</div>
       <div class="doc-name">${esc(it.name)}</div>
       <div>
         <div class="doc-detail">${esc(it.detail)}</div>
@@ -1696,7 +2518,7 @@ async function mDoBackup(btn) {
   if (btn) { btn.disabled = true; btn.textContent = "备份中…"; }
   try {
     const r = await fetch("/api/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((x) => x.json());
-    toast(r.ok ? "备份完成：" + (r.file || "") : "备份失败：" + (r.err || ""), r.ok ? "ok" : "bad");
+    toast(r.ok ? ("备份完成" + (r.file ? "：" + r.file : "")) : ("备份失败：" + (r.error || r.err || "未知错误")), r.ok ? "ok" : "bad");
   } catch (e) { toast("备份失败", "bad"); }
   if (btn) { btn.disabled = false; btn.textContent = "立即备份"; }
 }
@@ -1706,10 +2528,7 @@ async function mDoRestart() {
   setTimeout(refresh, 1200);
 }
 async function mDoStop() {
-  if (!confirm("停止网关？所有已配置的客户端会立刻断连。")) return;
-  await fetch("/api/service", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).then((x) => x.json());
-  toast("停止命令已发出（端口已释放）", "ok");
-  setTimeout(refresh, 1200);
+  return confirmAndStopGateway();
 }
 const MORE_ACT = {
   set: () => openSettings(),
@@ -1754,7 +2573,14 @@ async function savePw() {
   else toast(r.error || "设置失败", "bad");
 }
 async function offPw() {
-  const pw = prompt("输入当前密码以关闭访问密码：");
+  const pw = await uiPrompt({
+    title: "关闭面板访问密码",
+    desc: "请输入当前面板访问密码以确认关闭保护：",
+    placeholder: "输入当前密码",
+    inputType: "password",
+    okText: "关闭密码保护",
+    danger: true,
+  });
   if (pw === null) return;
   const r = await jpost("/api/auth/off", { password: pw });
   if (r.ok) { toast("访问密码已关闭", "ok"); loadPwState(); }
@@ -1786,9 +2612,11 @@ _b("#login-go", "click", doLogin);
 _b("#login-pw", "keydown", (e) => { if (e.key === "Enter") doLogin(); });
 _b("#btn-adv", "click", openAdv);
 _b("#adv-close", "click", () => $("#modal-adv").classList.remove("on"));
+_b("#modal-adv", "click", (e) => { if (e.target.id === "modal-adv") e.target.classList.remove("on"); });
 _b("#adv-alias-save", "click", saveAliases);
 _b("#adv-alias-add", "click", () => {
-  if (!ADV.aliases) ADV.aliases = { claude: [], codex: [], xai: [] };
+  if (!ADV.aliases) ADV.aliases = { claude: [], codex: [], xai: [], antigravity: [] };
+  if (!Array.isArray(ADV.aliases.claude)) ADV.aliases.claude = [];
   ADV.aliases.claude.push({ name: "", alias: "" });
   renderAliasEditor();
 });
@@ -1815,7 +2643,7 @@ _b("#set-pw-off", "click", offPw);
 _b("#modal-set", "click", (e) => { if (e.target.id === "modal-set") e.target.classList.remove("on"); });
 
 /* ───────── 添加账号（pty 驱动的图形化 OAuth） ───────── */
-const PF_LABEL = { claude: "Claude Max", codex: "ChatGPT", xai: "xAI Grok" };
+const PF_LABEL = { claude: "Claude Max", codex: "ChatGPT", xai: "xAI Grok", antigravity: "Gemini（Google 账号）" };
 let loginTimer = null;
 let loginPf = null;
 
@@ -1837,13 +2665,13 @@ function closeModal() {
   if (loginTimer) { clearInterval(loginTimer); loginTimer = null; }
 }
 function showStep(which) {
-  const hideCode = which === "wait" && S.loginPlatform === "antigravity";
   $("#step-pick").hidden = which !== "pick";
   $("#step-wait").hidden = which !== "wait";
   if (which === "pick") refreshPickState();
 }
 function refreshPickState() {
   const list = (S.data && S.data.auth) || [];
+  const lc = S.data && S.data.local_creds && S.data.local_creds.codex;
   document.querySelectorAll(".pick").forEach((b) => {
     const pf = b.dataset.pf;
     const sub = b.querySelector("[data-sub]");
@@ -1851,11 +2679,32 @@ function refreshPickState() {
     if (c) {
       sub.textContent = "已连接 · " + (c.email || "");
       sub.classList.add("ok");
+      sub.classList.remove("local");
+    } else if (pf === "codex" && lc && lc.available && !lc.expired) {
+      sub.textContent = "本机可导入 · " + (lc.email || "~/.codex");
+      sub.classList.remove("ok");
+      sub.classList.add("local");
     } else {
       sub.textContent = "未连接";
-      sub.classList.remove("ok");
+      sub.classList.remove("ok", "local");
     }
   });
+  const stepPick = $("#step-pick");
+  if (stepPick) {
+    const oldBanner = stepPick.querySelector(".pick-local");
+    if (oldBanner) oldBanner.remove();
+    const hasCodexAuth = list.some((x) => x.type === "codex" && !x.disabled);
+    if (lc && lc.available && !lc.imported && !lc.expired && !hasCodexAuth) {
+      const grid = stepPick.querySelector(".pick-grid");
+      const banner = el("div", "pick-local");
+      banner.innerHTML = `<span>检测到本机 ChatGPT 凭证（${esc(lc.email || "~/.codex/auth.json")}）</span>
+        <button class="btn sm primary" type="button" data-modal-import-codex>一键导入</button>`;
+      banner.querySelector("[data-modal-import-codex]").onclick = (e) => {
+        importLocalCodex(e.currentTarget, { inModal: true });
+      };
+      stepPick.insertBefore(banner, grid);
+    }
+  }
 }
 function setWaitStatus(kind, text) {
   const el = $("#wait-status");
@@ -1863,15 +2712,41 @@ function setWaitStatus(kind, text) {
   el.querySelector("span").textContent = text;
 }
 
+async function importLocalCodex(btn, opts) {
+  if (btn && btn.disabled) return;
+  const old = btn ? btn.textContent : "";
+  if (btn) { btn.disabled = true; btn.textContent = "导入中…"; }
+  try {
+    const r = await jpost("/api/login/import-codex", {});
+    if (r && r.ok) {
+      toast(`已导入 ChatGPT 凭证${r.email ? "（" + r.email + "）" : ""}`, "ok");
+      await refresh();
+      if (opts && opts.inModal) closeModal();
+      if (opts && opts.inDrawer) openChannel("codex");
+    } else {
+      toast((r && r.error) || "导入失败", "bad");
+      if (btn) { btn.disabled = false; btn.textContent = old; }
+    }
+  } catch (e) {
+    toast("导入失败：" + (e && e.message ? e.message : String(e)), "bad");
+    if (btn) { btn.disabled = false; btn.textContent = old; }
+  }
+}
+
 async function startLogin(pf) {
   loginPf = pf;
-  $("#modal").classList.add("on");   // 从凭证卡直接点也可能进来，保证弹层是开的
+  $("#modal").classList.add("on");   // 从凭证卡或额度球直接点进来，保证弹层是开的
   showStep("wait");
   $("#wait-pf").textContent = PF_LABEL[pf] || pf;
   $("#code").textContent = "————";
+  const cw = $("#code-wrap");
+  if (cw) cw.style.display = pf === "antigravity" ? "none" : "";
   $("#btn-open").hidden = true;
   $("#btn-retry-login").hidden = true;
   $("#wait-tip").hidden = false;
+  $("#wait-tip").textContent = pf === "antigravity"
+    ? "点上面的「打开授权页」，选你的 Google 账号并点「允许」。这边会自动接住回调，不用回来点任何按钮。"
+    : "在打开的页面里输入上面的码并确认。这边会自动完成，不用回来点任何按钮。";
   $("#wait-log").textContent = "";
   $("#countdown").textContent = "—";
   setWaitStatus("go", "正在启动授权…");
@@ -1947,12 +2822,12 @@ function renderUsage(d) {
   fill.className = over ? "over" : "";
   if (w.note) {
     note.textContent = "";
-    left.innerHTML = `<span class="dim">${w.note}</span>`;
-    right.innerHTML = w.calls ? `<span class="dim">上窗口 ${w.calls} 次</span>` : "";
+    left.innerHTML = `<span class="dim">${esc(w.note)}</span>`;
+    right.innerHTML = w.calls ? `<span class="dim">上窗口 ${esc(String(w.calls))} 次</span>` : "";
   } else {
     note.textContent = w.calls ? w.calls + " 次" : "";
-    left.innerHTML = `已用 ${fmtDur(w.elapsed)} / 5 小时`;
-    right.innerHTML = `<span class="dim">剩 ${fmtDur(w.remain)}</span>`;
+    left.innerHTML = `已用 ${esc(fmtDur(w.elapsed))} / 5 小时`;
+    right.innerHTML = `<span class="dim">剩 ${esc(fmtDur(w.remain))}</span>`;
   }
   const slots = h.slots || [];
   const max = Math.max(1, ...slots);
@@ -1961,7 +2836,7 @@ function renderUsage(d) {
     const cls = v === 0 ? "" : (v >= max * 0.6 ? "hot" : "mid");
     const t = h.oldest ? new Date(h.oldest).getTime() + i * 3600000 : null;
     const label = t ? new Date(t).toLocaleString("zh-CN", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit" }) : "";
-    return `<i class="${cls}" style="height:${Math.max(3, hh)}%" title="${label} · ${v} 次"></i>`;
+    return `<i class="${cls}" style="height:${Math.max(3, hh)}%" title="${esc(label)} · ${esc(String(v))} 次"></i>`;
   }).join("");
 }
 
@@ -1986,19 +2861,19 @@ async function loadAliases() {
   }
 }
 
-const CH_LABEL = { claude: "Claude Max", codex: "ChatGPT / Codex", xai: "xAI Grok" };
+const CH_LABEL = { claude: "Claude Max", codex: "ChatGPT / Codex", xai: "xAI Grok", antigravity: "Gemini（Antigravity）" };
 
 function renderAliasEditor() {
   const box = $("#adv-alias");
-  const models = (S.data && S.data.models && S.data.models.list) || [];
+  const models = (S.data && S.data.models && (S.data.models.models || S.data.models.list)) || [];
   const dl = models.map((m) => `<option value="${esc(m)}">`).join("");
   let html = `<datalist id="model-list">${dl}</datalist>`;
-  ["claude", "codex", "xai"].forEach((ch) => {
+  ["claude", "codex", "xai", "antigravity"].forEach((ch) => {
     const items = (ADV.aliases && ADV.aliases[ch]) || [];
-    html += `<div class="adv-ch">${CH_LABEL[ch] || ch}</div>`;
+    html += `<div class="adv-ch"><span>${esc(CH_LABEL[ch] || ch)}</span><button class="btn sm" type="button" data-add-ch="${esc(ch)}" style="padding:2px 8px;font-size:11px">+ 添加</button></div>`;
     if (!items.length) html += `<div class="empty" style="padding:8px 0">没有别名</div>`;
     items.forEach((it, i) => {
-      html += `<div class="adv-row" data-ch="${ch}" data-i="${i}" data-disp="${esc(it.display_name || "")}">
+      html += `<div class="adv-row" data-ch="${esc(ch)}" data-i="${i}" data-disp="${esc(it.display_name || "")}">
         <input list="model-list" value="${esc(it.name || "")}" placeholder="上游模型名" class="a-name">
         <input value="${esc(it.alias || "")}" placeholder="别名" class="a-alias">
         <span class="del" title="删除">×</span>
@@ -2006,6 +2881,15 @@ function renderAliasEditor() {
     });
   });
   box.innerHTML = html;
+  box.querySelectorAll("[data-add-ch]").forEach((b) => {
+    b.onclick = () => {
+      const ch = b.dataset.addCh;
+      if (!ADV.aliases) ADV.aliases = { claude: [], codex: [], xai: [], antigravity: [] };
+      if (!Array.isArray(ADV.aliases[ch])) ADV.aliases[ch] = [];
+      ADV.aliases[ch].push({ name: "", alias: "" });
+      renderAliasEditor();
+    };
+  });
   box.querySelectorAll(".del").forEach((b) => {
     b.onclick = (e) => {
       const row = e.target.closest(".adv-row");
@@ -2017,11 +2901,12 @@ function renderAliasEditor() {
 }
 
 function collectAliases() {
-  const out = { claude: [], codex: [], xai: [] };
+  const out = { claude: [], codex: [], xai: [], antigravity: [] };
   document.querySelectorAll("#adv-alias .adv-row").forEach((r) => {
     const name = r.querySelector(".a-name").value.trim();
     const alias = r.querySelector(".a-alias").value.trim();
     if (!name || !alias) return;
+    if (!out[r.dataset.ch]) out[r.dataset.ch] = [];
     out[r.dataset.ch].push({ name, alias, display_name: r.dataset.disp || alias, fork: true });
   });
   return out;
@@ -2053,7 +2938,7 @@ async function loadBackups() {
     box.innerHTML = list.map((b) => `
       <div class="adv-bk">
         <span class="nm">${esc(b.file)}</span>
-        <span class="tm">${(b.size / 1024).toFixed(1)}K · ${new Date(b.mtime).toLocaleString("zh-CN", { hour12: false })}</span>
+        <span class="tm">${(b.size / 1024).toFixed(1)}K · ${esc(fmtLocal(b.mtime))}</span>
         <button class="btn sm" data-restore="${esc(b.file)}">恢复</button>
       </div>`).join("");
     box.querySelectorAll("[data-restore]").forEach((b) => {
@@ -2065,14 +2950,30 @@ async function loadBackups() {
 }
 
 async function restoreBackup(file, btn) {
-  if (!confirm(`用 ${file} 覆盖当前 auth 目录？\n现有凭证会先另存一份 .bak-时间戳。`)) return;
+  if (!(await uiConfirm({
+    title: "恢复加密备份",
+    body: "将使用「" + file + "」覆盖当前 auth 目录（现有凭证会先另存为 .bak-时间戳）并重启网关。",
+    okText: "确认恢复",
+    danger: true,
+  }))) return;
   btn.disabled = true; btn.textContent = "恢复中…";
   try {
-    const r = await jpost("/api/restore", { file });
+    let r = await jpost("/api/restore", { file });
+    if (!r.ok && (r.need_password || r.bad_password || /口令/.test(r.error || ""))) {
+      const pw = await uiPrompt({
+        title: "输入备份解密口令",
+        desc: r.need_password ? "本机钥匙串未找到备份口令，请输入加密时的口令：" : "自动解密未通过，请手动输入正确的备份口令：",
+        placeholder: "备份口令",
+        inputType: "password",
+        okText: "解密并恢复",
+      });
+      if (pw === null) return;
+      r = await jpost("/api/restore", { file, password: pw });
+    }
     if (r.ok) { toast(`已恢复 ${r.restored} 份凭证，网关已重启`, "ok"); await refresh(); }
     else { toast("恢复失败：" + (r.error || ""), "bad"); }
   } catch (e) { toast("恢复失败", "bad"); }
-  btn.disabled = false; btn.textContent = "恢复";
+  finally { btn.disabled = false; btn.textContent = "恢复"; }
 }
 
 /* ───────── 主刷新 ───────── */
@@ -2083,18 +2984,21 @@ const PF_NAME = { claude: "Claude Max", codex: "ChatGPT", xai: "xAI Grok" };
 
 function qbar(label, used, status, resetAt, note) {
   if (used == null) return "";
-  const pct = Math.max(0, Math.min(1, used));
-  const bad = pct >= 0.99, warn = pct >= 0.75;
-  const color = bad ? "#f87171" : warn ? "#fbbf24" : "#34d399";
-  const txt = pct >= 0.999 ? "已用尽" : (pct * 100).toFixed(pct < 0.1 ? 1 : 0) + "%";
+  const pct = clamp01(used);
+  const rem = 1 - pct;
+  const tone = quotaTone(rem);
+  const color = tone === "bad" ? "#f87171" : tone === "warn" ? "#fbbf24" : "#34d399";
+  const txt = fmtQuotaPct(rem);
+  const widthPct = rem <= 0.001 ? 0 : Math.max(2, +(rem * 100).toFixed(1));
   let reset = "";
   if (resetAt) {
-    const d = new Date(resetAt), diff = (d - Date.now()) / 1000;
-    reset = diff > 0 ? (diff > 86400 ? Math.floor(diff / 86400) + " 天 " + Math.floor(diff % 86400 / 3600) + " 小时" : Math.floor(diff / 3600) + " 小时 " + Math.floor(diff % 3600 / 60) + " 分") + "后重置" : "已重置";
+    const d = parseTs(resetAt), diff = d ? (d.getTime() - Date.now()) / 1000 : 0;
+    reset = diff > 0 ? fmtDur(Math.round(diff)) + "后重置" : "已重置";
   }
-  return `<div class="qrow">
-    <div class="qhd"><span>${esc(label)}</span><b style="color:${color}">${txt}</b></div>
-    <div class="qbar"><i style="width:${(pct * 100).toFixed(1)}%;background:${color}"></i></div>
+  const tip = `已用 ${Math.round(pct * 100)}%${reset ? " · " + reset : ""}`;
+  return `<div class="qrow" title="${esc(tip)}">
+    <div class="qhd"><span>${esc(label)}</span><b style="color:${color}">${esc(txt)}</b></div>
+    <div class="qbar"><i style="width:${widthPct}%;background:${color}"></i></div>
     <div class="qsub">${esc(reset)}${note ? " · " + esc(note) : ""}</div>
   </div>`;
 }
@@ -2110,48 +3014,65 @@ const ORB_META = {
 
 function orbOf(type, q) {
   const m = ORB_META[type] || {};
+  const p = PLAT[type] || { name: type };
   const qk = type === "antigravity" ? "gemini" : type;
   const g = (q && q[qk]) || null;
   const auth = ((S.data || {}).auth || []).filter(a => a.type === type);
   const live = auth.filter(a => !a.disabled && (a.remain_sec == null || a.remain_sec > 0));
   const best = (live.length ? live : auth).sort((x, y) => (y.remain_sec || 0) - (x.remain_sec || 0))[0];
   const remainH = best && best.remain_sec != null ? best.remain_sec / 3600 : null;
-  const dead = !auth.length || !live.length;
+  let dead = !auth.length || !live.length;
+  let connectable = false;
 
-  let fill = 0, ring = 0, big = "—", unit = "无数据", meta = "", tag = "";
-  const pctTone = (p) => p >= 50 ? "ok" : p >= 20 ? "warn" : "bad";
+  let fill = 0, ring = 0, big = "—", unit = "无数据", meta = "", tag = "", tip = "";
 
   if (type === "claude" && g && g.ok) {
-    // 液面 = 7 天窗口剩余；环 = 5 小时窗口已用
-    const used7 = (g.d7 && g.d7.used) || 0;
-    fill = Math.max(0, Math.min(100, (1 - used7) * 100));
-    ring = Math.max(0, Math.min(1, (g.h5 && g.h5.used) || 0));
-    big = Math.round(fill) + "%"; unit = "7 天剩余";
-    const r7 = g.d7 && g.d7.reset_at ? fmtDur(Math.round((Date.parse(g.d7.reset_at) - Date.now())/1000)) : "";
-    meta = (r7 ? `额度 ${r7}后重置` : "额度窗口未知") + (best ? `\n登录凭证 ${fmtDur(best.remain_sec)}后自动续期` : "");
+    const used7 = clamp01(g.d7 && g.d7.used);
+    const rem7 = 1 - used7;
+    fill = rem7 * 100;
+    ring = 1 - clamp01(g.h5 && g.h5.used);
+    big = fmtQuotaPct(rem7); unit = "7 天窗口";
+    const r7 = g.d7 && g.d7.reset_at ? fmtDur(Math.round((Date.parse(g.d7.reset_at) - Date.now()) / 1000)) : "";
+    meta = (r7 ? `额度 ${r7}后重置` : "额度窗口未知") + (best ? `\n凭证 ${fmtDur(best.remain_sec)}后自动续期` : "");
+    tip = `7 天已用 ${Math.round(used7 * 100)}%${r7 ? " · " + r7 + "后重置" : ""} · 点击查看详情`;
     tag = g.plan || "";
+    dead = false;
   } else if (type === "codex" && g && g.ok) {
-    const used = (g.primary && g.primary.used) || 0;
-    fill = Math.max(0, Math.min(100, (1 - used) * 100));
-    ring = Math.max(0, Math.min(1, 1 - used));
-    big = Math.round(fill) + "%"; unit = "额度剩余";
-    const r = g.primary && g.primary.reset_at ? fmtDur(Math.round((Date.parse(g.primary.reset_at) - Date.now())/1000)) : "";
-    meta = (r ? `额度 ${r}后重置` : "额度窗口未知") + (best ? `\n登录凭证 ${fmtDur(best.remain_sec)}后自动续期` : "");
+    const used = clamp01(g.primary && g.primary.used);
+    const rem = 1 - used;
+    fill = rem * 100;
+    ring = rem;
+    big = fmtQuotaPct(rem); unit = "7 天窗口";
+    const r = g.primary && g.primary.reset_at ? fmtDur(Math.round((Date.parse(g.primary.reset_at) - Date.now()) / 1000)) : "";
+    const lcCodex = S.data && S.data.local_creds && S.data.local_creds.codex;
+    const hasLocalCodex = !best && ((lcCodex && lcCodex.available && !lcCodex.expired) || (g && g.ok));
+    meta = (r ? `额度 ${r}后重置` : "额度窗口未知") + (best ? `\n凭证 ${fmtDur(best.remain_sec)}后自动续期` : (hasLocalCodex ? "\n本机有凭证 · 点此导入/查看" : "\n本机额度 · 点此查看/接入"));
+    tip = `已用 ${Math.round(used * 100)}%${r ? " · " + r + "后重置" : ""}${best ? "" : "（网关尚未导入凭证）"} · 点击查看详情`;
     tag = g.plan || "";
+    dead = false;
   } else if (best) {
-    // 无额度接口：液面用凭证时效（按各自周期归一化），中间显示剩余时长
-    const cyc = type === "xai" ? 6 : type === "antigravity" ? 6 : 6;
+    const cyc = 6;
     fill = remainH == null ? 0 : Math.max(0, Math.min(100, remainH / cyc * 100));
     ring = 0;
-    big = fmtDur(best.remain_sec); unit = "凭证时效";
-    meta = `登录凭证 ${fmtDur(best.remain_sec)}后自动续期\n无额度接口 · 靠 429 反推`;
+    big = live.length ? fmtDur(best.remain_sec) : "需刷新";
+    unit = live.length ? "凭证时效" : "凭证已过期";
+    meta = live.length
+      ? `凭证 ${fmtDur(best.remain_sec)}后自动续期\n无额度接口 · 靠 429 反推`
+      : "凭证已过期 · 点击重新登录";
+    tip = live.length ? `${p.name} 已连接 · 点击查看详情` : `重新授权 ${p.name}`;
     tag = auth.length > 1 ? `${auth.length} 账号` : "";
+    connectable = !live.length;
   } else {
-    dead = true; meta = "未接入";
+    dead = true;
+    connectable = true;
+    big = "+ 接入";
+    unit = "点击授权";
+    meta = "未接入 · 点此登录";
+    tip = `接入 ${p.name}（点击开始浏览器授权）`;
   }
   if (g && g.stale) meta = "网络波动，显示缓存 · " + meta;
 
-  return { c: m.c || "#6b7280", c2: m.c2 || "#374151", fill, ring, big, unit, meta, tag, dead };
+  return { c: m.c || "#6b7280", c2: m.c2 || "#374151", fill, ring, big, unit, meta, tag, tip, dead, connectable };
 }
 
 function renderOrbs(q) {
@@ -2160,17 +3081,25 @@ function renderOrbs(q) {
   box.innerHTML = order.map(t => {
     const o = orbOf(t, q);
     const p = PLAT[t] || { name: t };
-    return `<div class="orb${o.dead ? " dead" : " live"}" style="--c:${o.c};--c2:${o.c2};--fill:${o.fill}%;--ring:${o.ring}">
+    const cls = o.connectable ? "orb dead connectable" : (o.dead ? "orb dead" : "orb live");
+    const bigStyle = !o.connectable && o.big.length > 3 ? ' style="font-size:18px"' : "";
+    return `<div class="${cls}" data-orb="${esc(t)}" data-orb-act="${o.connectable ? "login" : "detail"}" ${o.tip ? `title="${esc(o.tip)}"` : ""} style="--c:${o.c};--c2:${o.c2};--fill:${o.fill}%;--ring:${o.ring}">
       <span class="orb-tag">${esc(o.tag)}</span>
       <div class="orb-shell">
         <div class="orb-fill"><i></i><b></b></div>
         <div class="orb-ring"></div>
-        <div class="orb-core"><div class="orb-big">${esc(o.big)}</div><div class="orb-unit">${esc(o.unit)}</div></div>
+        <div class="orb-core"><div class="orb-big"${bigStyle}>${esc(o.big)}</div><div class="orb-unit">${esc(o.unit)}</div></div>
       </div>
       <div class="orb-name"><span class="orb-logo">${LOGO[t] || ""}</span>${esc(p.name)}</div>
       <div class="orb-meta">${esc(o.meta)}</div>
     </div>`;
   }).join("");
+  box.querySelectorAll("[data-orb]").forEach((node) => {
+    const t = node.dataset.orb;
+    const act = () => node.dataset.orbAct === "login" ? startLogin(t) : openChannel(t);
+    node.onclick = act;
+    bindKeyClick(node, act);
+  });
 }
 
 
@@ -2178,21 +3107,47 @@ window.__m3=1;
 /* ───────── 板块导航 ───────── */
 const SECTIONS = ["sec-overview", "sec-models", "sec-usage", "sec-api", "sec-run"];
 function initTabs() {
-  document.querySelectorAll("#tabs .tab").forEach((b) => {
+  let navLockId = null, navLockUntil = 0;
+  const setActiveTab = (id) => {
+    document.querySelectorAll("header nav.tabs .tab").forEach((b) => {
+      b.classList.toggle("on", b.dataset.go === id);
+    });
+  };
+  document.querySelectorAll("header nav.tabs .tab").forEach((b) => {
     b.onclick = () => {
-      const t = document.getElementById(b.dataset.go);
-      if (t) window.scrollTo({ top: t.offsetTop - 70, behavior: "smooth" });
+      const id = b.dataset.go;
+      const t = document.getElementById(id);
+      if (t) {
+        navLockId = id;
+        navLockUntil = Date.now() + 800;
+        setActiveTab(id);
+        const hdH = (document.querySelector("header") || {}).offsetHeight || 64;
+        window.scrollTo({ top: Math.max(0, t.getBoundingClientRect().top + window.scrollY - (hdH + 12)), behavior: "smooth" });
+      }
     };
   });
   const onScroll = () => {
-    let cur = SECTIONS[0];
-    for (const id of SECTIONS) {
-      const el = document.getElementById(id);
-      if (el && el.getBoundingClientRect().top <= 120) cur = id;
+    if (Date.now() < navLockUntil && navLockId) {
+      setActiveTab(navLockId);
+      return;
     }
-    document.querySelectorAll("#tabs .tab").forEach((b) => {
-      b.classList.toggle("on", b.dataset.go === cur);
-    });
+    const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 36;
+    if (atBottom) {
+      setActiveTab(SECTIONS[SECTIONS.length - 1]);
+      return;
+    }
+    const hdH = (document.querySelector("header") || {}).offsetHeight || 64;
+    const ordered = SECTIONS.map((id) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { id, top: r.top, docY: r.top + window.scrollY };
+    }).filter(Boolean).sort((a, b) => a.docY - b.docY);
+    let cur = ordered.length ? ordered[0].id : SECTIONS[0];
+    for (const item of ordered) {
+      if (item.top <= hdH + 56) cur = item.id;
+    }
+    setActiveTab(cur);
   };
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
@@ -2217,10 +3172,21 @@ function initNotifySeg() {
   const seg = $("#notify-seg"); if (!seg) return;
   seg.querySelectorAll("button").forEach((b) => {
     b.onclick = async () => {
+      const prev = (S.settings && S.settings.notify_level) || "severe";
       renderNotifySeg(b.dataset.n);
-      await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notify_level: b.dataset.n }) });
-      toast(b.dataset.n === "off" ? "已关闭通知" : b.dataset.n === "all" ? "全部提醒已开启" : "只提醒故障", "ok");
+      try {
+        const r = await jpost("/api/settings", { notify_level: b.dataset.n });
+        if (r && r.ok) {
+          if (S.settings) S.settings.notify_level = b.dataset.n;
+          toast(b.dataset.n === "off" ? "已关闭通知" : b.dataset.n === "all" ? "全部提醒已开启" : "只提醒故障", "ok");
+        } else {
+          renderNotifySeg(prev);
+          toast((r && r.error) || "保存通知设置失败", "bad");
+        }
+      } catch (e) {
+        renderNotifySeg(prev);
+        toast("保存通知设置失败", "bad");
+      }
     };
   });
 }
@@ -2237,15 +3203,17 @@ function closeDrawer() {
 async function openChannel(ch) {
   const d = $("#drawer"), b = $("#dw-body"), h = $("#dw-hd");
   h.innerHTML = `<div class="ico" style="background:${(ORB_META[ch]||{}).bg||'#1a2432'}">${LOGO[ch]||''}</div>
-    <div><div class="dw-title">加载中…</div><div class="dw-sub">${ch}</div></div>
-    <button class="dw-x" onclick="closeDrawer()">✕</button>`;
-  b.innerHTML = `<div class="hint">正在读取 ${ch} 的配置…</div>`;
+    <div><div class="dw-title">加载中…</div><div class="dw-sub">${esc(ch)}</div></div>
+    <button type="button" class="dw-x" data-dw-close>✕</button>`;
+  const xBtn = h.querySelector("[data-dw-close]");
+  if (xBtn) xBtn.onclick = closeDrawer;
+  b.innerHTML = `<div class="hint">正在读取 ${esc(ch)} 的配置…</div>`;
   d.classList.add("on"); $("#drawer-mask").classList.add("on");
 
   let j;
   try { j = await jget("/api/channel?id=" + encodeURIComponent(ch)); }
-  catch (e) { b.innerHTML = `<div class="hint">读取失败：${e.message}</div>`; return; }
-  if (!j || !j.ok) { b.innerHTML = `<div class="hint">${(j && j.error) || "读取失败"}</div>`; return; }
+  catch (e) { b.innerHTML = `<div class="hint">读取失败：${esc(e && e.message ? e.message : String(e))}</div>`; return; }
+  if (!j || !j.ok) { b.innerHTML = `<div class="hint">${esc((j && j.error) || "读取失败")}</div>`; return; }
 
   renderDrawer(j);
 }
@@ -2266,7 +3234,7 @@ function renderDrawer(j) {
   const bg = (ORB_META[ch] || {}).bg || "rgba(255,255,255,.06)";
   $("#dw-hd").innerHTML = `<div class="ico" style="background:${bg}">${LOGO[ch] || ""}</div>
     <div><div class="dw-title">${esc(j.label)}</div><div class="dw-sub">${esc(j.desc || "")}</div></div>
-    <button class="dw-x" onclick="closeDrawer()">✕</button>`;
+    <button type="button" class="dw-x" data-dw-close>✕</button>`;
 
   let h = "";
 
@@ -2274,18 +3242,20 @@ function renderDrawer(j) {
   const q = j.quota || {};
   if (q.ok) {
     if (ch === "claude" && q.d7) {
+      const rem7 = 1 - clamp01(q.d7.used), rem5 = 1 - clamp01(q.h5 && q.h5.used);
       h += `<div class="dw-sec"><div class="dw-sec-hd">额度</div><div class="dw-card">
-        <div class="dw-row"><span class="k">7 天窗口</span><span class="v">已用 ${(q.d7.used * 100).toFixed(0)}% · ${q.d7.reset_at ? fmtDur(Math.round((Date.parse(q.d7.reset_at) - Date.now()) / 1000)) + "后重置" : "—"}</span></div>
-        <div class="dw-row"><span class="k">5 小时窗口</span><span class="v">已用 ${(q.h5.used * 100).toFixed(0)}%${q.h5.reset_at ? " · " + fmtDur(Math.round((Date.parse(q.h5.reset_at) - Date.now()) / 1000)) + "后重置" : ""}</span></div>
+        <div class="dw-row"><span class="k">7 天窗口</span><span class="v">${esc(fmtQuotaPct(rem7))}（已用 ${Math.round(clamp01(q.d7.used) * 100)}%${q.d7.reset_at ? " · " + fmtDur(Math.round((Date.parse(q.d7.reset_at) - Date.now()) / 1000)) + "后重置" : ""}）</span></div>
+        <div class="dw-row"><span class="k">5 小时窗口</span><span class="v">${esc(fmtQuotaPct(rem5))}（已用 ${Math.round(clamp01(q.h5 && q.h5.used) * 100)}%${q.h5 && q.h5.reset_at ? " · " + fmtDur(Math.round((Date.parse(q.h5.reset_at) - Date.now()) / 1000)) + "后重置" : ""}）</span></div>
         <div class="dw-row"><span class="k">超额用量</span><span class="v">${q.overage && q.overage.status === "rejected" ? "不可用（" + esc(q.overage.reason || "") + "）" : "可用"}</span></div>
       </div></div>`;
     } else if (ch === "codex" && q.primary) {
+      const rem = 1 - clamp01(q.primary.used);
       h += `<div class="dw-sec"><div class="dw-sec-hd">额度</div><div class="dw-card">
         <div class="dw-row"><span class="k">套餐</span><span class="v">${esc(q.plan || "—")}</span></div>
-        <div class="dw-row"><span class="k">窗口已用</span><span class="v">${(q.primary.used * 100).toFixed(0)}%${q.primary.reset_at ? " · " + fmtDur(Math.round((Date.parse(q.primary.reset_at) - Date.now()) / 1000)) + "后重置" : ""}</span></div>
+        <div class="dw-row"><span class="k">窗口余量</span><span class="v">${esc(fmtQuotaPct(rem))}（已用 ${Math.round(clamp01(q.primary.used) * 100)}%${q.primary.reset_at ? " · " + fmtDur(Math.round((Date.parse(q.primary.reset_at) - Date.now()) / 1000)) + "后重置" : ""}）</span></div>
         <div class="dw-row"><span class="k">余额</span><span class="v">${esc(
           (q.credits && typeof q.credits === "object")
-            ? (q.credits.unlimited ? "无限" : (q.credits.balance ?? "0") + (q.credits.has_credits ? "" : "（无）"))
+            ? (q.credits.unlimited ? "无限" : (q.credits.balance ?? "0") + (q.credits.has ? "" : "（无）"))
             : (q.credits || "0"))}</span></div>
       </div></div>`;
     } else {
@@ -2300,40 +3270,52 @@ function renderDrawer(j) {
   /* 凭证 */
   h += `<div class="dw-sec"><div class="dw-sec-hd">账号与凭证</div>`;
   if (!(j.creds || []).length) {
-    h += `<div class="dw-card"><div class="hint">还没有接入 ${esc(j.label)} 账号</div>
-      <button class="btn sm primary" style="margin-top:8px" onclick="closeDrawer();startLogin('${ch}')">接入账号</button></div>`;
+    const lc = ch === "codex" ? j.local_cred : null;
+    if (lc && lc.available && !lc.expired) {
+      h += `<div class="dw-card"><div class="hint">检测到本机 <code>~/.codex/auth.json</code>（${esc(lc.email || "ChatGPT")}${lc.plan ? " · " + esc(lc.plan) : ""}），可直接导入网关，免去浏览器设备码授权。</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn sm primary" type="button" data-dw-import-codex>一键导入本机凭证</button>
+          <button class="btn sm" type="button" data-dw-login="codex">扫码登录其他账号</button>
+        </div></div>`;
+    } else {
+      h += `<div class="dw-card"><div class="hint">还没有接入 ${esc(j.label)} 账号</div>
+        <button class="btn sm primary" style="margin-top:8px" data-dw-login="${esc(ch)}">接入账号</button></div>`;
+    }
   } else {
     j.creds.forEach((a) => {
       const bad = a.disabled || (a.remain_sec != null && a.remain_sec < 0);
       h += `<div class="dw-card" style="margin-bottom:8px">
         <div class="dw-row"><span class="k">账号</span><span class="v">${esc(a.email || a.file)}</span></div>
-        <div class="dw-row"><span class="k">凭证</span><span class="v">${bad ? "<span style='color:#f87171'>已失效</span>" : fmtDur(a.remain_sec) + "后自动续期"}</span></div>
+        <div class="dw-row"><span class="k">凭证</span><span class="v">${bad ? "<span style='color:#f87171'>已失效</span>" : esc(fmtDur(a.remain_sec)) + "后自动续期"}</span></div>
         <div class="dw-row"><span class="k">文件</span><span class="v">${esc((a.file || "").replace(/^.*\//, ""))}</span></div>
         <div class="dw-row"><span class="k">刷新令牌</span><span class="v">${a.has_refresh ? "有（可自动续期）" : "<span style='color:#fbbf24'>无</span>"}</span></div>
         <div style="display:flex;gap:7px;margin-top:9px">
-          <button class="btn sm" onclick="closeDrawer();startLogin('${ch}')">重新登录</button>
+          <button type="button" class="btn sm" data-dw-login="${esc(ch)}">重新登录</button>
         </div></div>`;
     });
   }
   h += `</div>`;
 
   /* 模型与别名 */
-  h += `<div class="dw-sec"><div class="dw-sec-hd">模型 ${j.model_count} 个 · 别名 ${j.alias_count} 个</div>
+  h += `<div class="dw-sec"><div class="dw-sec-hd">模型 ${esc(String(j.model_count))} 个 · 别名 ${esc(String(j.alias_count))} 个</div>
     <div class="dw-card dw-models">`;
+  if (!(j.models || []).length) {
+    h += `<div class="dim" style="font-size:12px;padding:4px 2px">接入该平台账号后，这里会列出可用模型与短别名</div>`;
+  }
   (j.models || []).forEach((m) => {
     h += `<div class="dw-m"><span class="id">${esc(m.id)}</span>
       ${m.alias ? `<span class="al">${esc(m.alias)}</span>` : ""}
-      <button class="go" data-p="${esc(platOf(m.alias || m.id) || "")}" onclick="goPlat(this)" title="看这个平台的详情">详情</button>
-  <button class="go" onclick="testModel(this,'${esc(m.alias || m.id)}')">测试</button></div>`;
+      <button type="button" class="go" data-dw-plat="${esc(platOf(m.alias || m.id) || "")}" title="看这个平台的详情">详情</button>
+      <button type="button" class="go" data-dw-test="${esc(m.alias || m.id)}">测试</button></div>`;
   });
   h += `</div><div class="hint" style="margin-top:6px">点「测试」会真发一次请求，消耗一点额度。改别名去「更多 → 高级」。</div></div>`;
 
   /* API 接入 */
   h += `<div class="dw-sec"><div class="dw-sec-hd">API 接入</div><div class="dw-card">
     <div class="dw-api"><span class="tag">Anthropic</span><code>${esc(j.api.base_anthropic)}</code>
-      <button class="go" onclick="copyText('${esc(j.api.base_anthropic)}',this)">复制</button></div>
+      <button type="button" class="go" data-dw-copy="${esc(j.api.base_anthropic)}">复制</button></div>
     <div class="dw-api"><span class="tag">OpenAI</span><code>${esc(j.api.base_openai)}</code>
-      <button class="go" onclick="copyText('${esc(j.api.base_openai)}',this)">复制</button></div>
+      <button type="button" class="go" data-dw-copy="${esc(j.api.base_openai)}">复制</button></div>
     <div class="dw-row" style="margin-top:6px"><span class="k">模型名填</span><span class="v">${esc(j.api.example_model || "—")}</span></div>
     <div class="hint" style="margin-top:6px">鉴权用「设备 Key」（页面下方那三把 sk-local）。Anthropic 协议地址不带 /v1，OpenAI 协议带 /v1。</div>
   </div></div>`;
@@ -2358,7 +3340,24 @@ function renderDrawer(j) {
     h += `</div></div>`;
   }
 
-  $("#dw-body").innerHTML = h;
+  const body = $("#dw-body");
+  body.innerHTML = h;
+  const dwClose = $("#dw-hd [data-dw-close]");
+  if (dwClose) dwClose.onclick = closeDrawer;
+  const dwImp = body.querySelector("[data-dw-import-codex]");
+  if (dwImp) dwImp.onclick = () => importLocalCodex(dwImp, { inDrawer: true });
+  body.querySelectorAll("[data-dw-login]").forEach((btn) => {
+    btn.onclick = () => { closeDrawer(); startLogin(btn.dataset.dwLogin); };
+  });
+  body.querySelectorAll("[data-dw-plat]").forEach((btn) => {
+    btn.onclick = () => { const p = btn.dataset.dwPlat; if (p) openChannel(p); };
+  });
+  body.querySelectorAll("[data-dw-test]").forEach((btn) => {
+    btn.onclick = () => testDrawerModel(btn, btn.dataset.dwTest);
+  });
+  body.querySelectorAll("[data-dw-copy]").forEach((btn) => {
+    btn.onclick = () => copyText(btn.dataset.dwCopy, btn);
+  });
 }
 
 function renderQuota(q) {
@@ -2366,10 +3365,13 @@ function renderQuota(q) {
   if (!box) return;
   if (!q && quotaLoading) return;
   if (!q) {
-    box.innerHTML = `<div class="dim" style="font-size:12px;line-height:1.7">还没取到。<br>点右上「刷新」旁的 <b>取额度</b> 会真连一次上游（约 10~40 秒）。</div>`;
+    box.innerHTML = `<div class="dim" style="font-size:12px;line-height:1.7">还没取到。<br>点右上「↻ 刷新」或顶栏 <b>取额度</b> 连接上游拉取真实额度。</div>`;
     return;
   }
+  const authTypes = new Set(((S.data || {}).auth || []).filter((a) => !a.disabled).map((a) => a.type));
   let h = "";
+  const compact = [];
+
   if (q.claude && q.claude.ok) {
     h += `<div class="qpf"><span class="qico" style="background:${PF_ICON.claude[1]}">${LOGO.claude}</span>${PF_NAME.claude}
       <span class="qtier">${esc(q.claude.plan || "")}</span></div>`;
@@ -2378,42 +3380,88 @@ function renderQuota(q) {
               q.claude.d7.used >= q.claude.d7.threshold ? "已过 " + Math.round(q.claude.d7.threshold * 100) + "% 阈值" : "");
     if (q.claude.stale) h += `<div class="qnote" style="color:#fbbf24">${esc(q.claude.note_stale || "")}</div>`;
     if (q.claude.overage && q.claude.overage.status === "rejected")
-      h += `<div class="qnote">超额用量不可用（${esc(q.claude.overage.reason || "")}）—— 用尽后只能等重置</div>`;
+      h += `<div class="qnote">超额用量不可用（${esc(q.claude.overage.reason || "")}）</div>`;
   } else if (q.claude) {
-    h += `<div class="qpf"><span class="qico" style="background:${PF_ICON.claude[1]}">${LOGO.claude}</span>${PF_NAME.claude}</div><div class="qnote">${esc(q.claude.note || "取不到")}</div>`;
+    const note = q.claude.note || "未接入";
+    compact.push({
+      ch: "claude", name: PF_NAME.claude, bg: PF_ICON.claude[1], logo: LOGO.claude,
+      short: authTypes.has("claude") ? note : "未接入 · 点此授权",
+      tip: note,
+    });
   }
+
   if (q.codex && q.codex.ok) {
     const w = q.codex.primary && q.codex.primary.window_seconds >= 604800 ? "7 天窗口" : "5 小时窗口";
-    h += `<div class="qpf" style="margin-top:12px"><span class="qico" style="background:${PF_ICON.codex[1]}">${LOGO.codex}</span>${PF_NAME.codex}
+    const hasCodexAuth = authTypes.has("codex");
+    h += `<div class="qpf" style="${h ? "margin-top:12px" : ""}"><span class="qico" style="background:${PF_ICON.codex[1]}">${LOGO.codex}</span>${PF_NAME.codex}
       <span class="qtier">${esc(q.codex.plan || "")}</span></div>`;
     h += qbar(w, q.codex.primary ? q.codex.primary.used : null, "", q.codex.primary && q.codex.primary.reset_at);
+    if (!hasCodexAuth) h += `<div class="qnote">读自本机 ~/.codex · 网关尚未导入凭证</div>`;
     if (q.codex.stale) h += `<div class="qnote" style="color:#fbbf24">${esc(q.codex.note_stale || "")}</div>`;
-    if (q.codex.credits && q.codex.credits.balance)
+    if (q.codex.credits && q.codex.credits.has && q.codex.credits.balance)
       h += `<div class="qnote">余额 ${esc(q.codex.credits.balance)}</div>`;
     if (q.codex.reset_credits)
-      h += `<div class="qnote" style="color:#fbbf24">可用重置次数 ${q.codex.reset_credits}</div>`;
+      h += `<div class="qnote" style="color:#fbbf24">可用重置次数 ${esc(String(q.codex.reset_credits))}</div>`;
   } else if (q.codex) {
-    h += `<div class="qpf" style="margin-top:12px"><span class="qico" style="background:${PF_ICON.codex[1]}">${LOGO.codex}</span>${PF_NAME.codex}</div><div class="qnote">${esc(q.codex.note || "取不到")}</div>`;
+    const note = q.codex.note || "未接入";
+    compact.push({
+      ch: "codex", name: PF_NAME.codex, bg: PF_ICON.codex[1], logo: LOGO.codex,
+      short: authTypes.has("codex") ? note : "未接入 · 点此授权",
+      tip: note,
+    });
   }
-  h += `<div class="qpf" style="margin-top:12px"><span class="qico" style="background:${PF_ICON.xai[1]}">${LOGO.xai}</span>${PF_NAME.xai}</div>
-        <div class="qnote">${esc((q.xai && q.xai.note) || "未开放额度查询")}</div>`;
 
-  // Gemini（Antigravity）：只有档位 + 本地口径，没有上游用量接口
-  if (q.gemini) {
+  const xaiNote = (q.xai && q.xai.note) || "未开放额度查询";
+  compact.push({
+    ch: "xai", name: PF_NAME.xai, bg: PF_ICON.xai[1], logo: LOGO.xai,
+    short: authTypes.has("xai") ? "已接入 · 无额度接口" : "官方未开放额度接口",
+    tip: xaiNote,
+  });
+
+  if (q.gemini && q.gemini.ok) {
     const g = q.gemini;
-    h += `<div class="qpf" style="margin-top:12px"><span class="qico" style="background:#4285f4">${LOGO.antigravity}</span>Gemini
+    h += `<div class="qpf" style="${h ? "margin-top:12px" : ""}"><span class="qico" style="background:#4285f4">${LOGO.antigravity}</span>Gemini
       <span class="qtier">${esc(g.tier || "")}</span></div>`;
-    if (g.ok) {
-      if (g.stale) h += `<div class="qnote" style="color:#fbbf24">${esc(g.note_stale || "")}</div>`;
-      if (g.project) h += `<div class="qnote">项目 ${esc(g.project)}</div>`;
-      if (g.local_calls != null) h += `<div class="qnote">本网关窗口内 ${g.local_calls} 次</div>`;
-      h += `<div class="qnote" style="opacity:.75">Google 未开放个人账号的用量接口<br>（retrieveUserQuota 返 403 SUBSCRIPTION_REQUIRED）</div>`;
-    } else {
-      h += `<div class="qnote">${esc(g.note || "取不到")}</div>`;
-    }
+    if (g.stale) h += `<div class="qnote" style="color:#fbbf24">${esc(g.note_stale || "")}</div>`;
+    if (g.project) h += `<div class="qnote">项目 ${esc(g.project)}</div>`;
+    if (g.local_calls != null) h += `<div class="qnote">本网关窗口内 ${esc(String(g.local_calls))} 次</div>`;
+    h += `<div class="qnote" style="opacity:.75">Google 未开放个人用量接口（403）</div>`;
+  } else if (q.gemini) {
+    const note = q.gemini.note || "未接入";
+    compact.push({
+      ch: "antigravity", name: "Gemini", bg: "#4285f4", logo: LOGO.antigravity,
+      short: authTypes.has("antigravity") ? note : "未接入 · 点此授权",
+      tip: note,
+    });
   }
+
+  if (compact.length) {
+    h += `<div class="q-clist">` + compact.map((c) => `
+      <div class="q-crow" data-q-ch="${esc(c.ch)}" title="${esc(c.tip || "")}（点击查看详情）">
+        <span class="qico" style="background:${c.bg}">${c.logo}</span>
+        <span>${esc(c.name)}</span>
+        <span class="q-cnote">${esc(c.short)}</span>
+      </div>`).join("") + `</div>`;
+  }
+
   box.innerHTML = h;
-  if ($("#q-age")) $("#q-age").textContent = q.age ? `（缓存 ${Math.floor(q.age / 60)} 分钟）` : "（刚取）";
+  box.querySelectorAll("[data-q-ch]").forEach((row) => {
+    const ch = row.dataset.qCh;
+    row.onclick = () => openChannel(ch);
+    bindKeyClick(row, () => openChannel(ch));
+  });
+  if ($("#q-age")) $("#q-age").textContent = q.age ? (q.age < 60 ? "（刚刚）" : `（${Math.floor(q.age / 60)} 分钟前）`) : "（刚刚）";
+}
+
+async function testDrawerModel(btn, id) {
+  if (!btn || btn.disabled) return;
+  btn.disabled = true; btn.textContent = "测试中…";
+  try {
+    const r = await jpost("/api/test", { model: id });
+    btn.textContent = r.ok ? `✓ ${r.ms}ms` : "✗ 失败";
+    toast(r.ok ? `${id} ✓ ${r.ms}ms` : `${id} ✗ ${(r.error || "").slice(0, 80)}`, r.ok ? "ok" : "bad");
+  } catch (e) { btn.textContent = "✗ 异常"; }
+  setTimeout(() => { btn.disabled = false; btn.textContent = "测试"; }, 2200);
 }
 
 let quotaLoading = false, lastQuotaTry = 0;
@@ -2422,65 +3470,168 @@ async function loadQuota(force) {
   quotaLoading = true;
   lastQuotaTry = Date.now();
   const box = $("#quota");
+  const bMini = document.querySelector("[data-quota-mini]");
+  const bTop = $("#btn-quota");
+  if (bMini) { bMini.disabled = true; bMini.textContent = "刷新中…"; }
+  if (bTop) { bTop.disabled = true; bTop.textContent = "取额度…"; }
   if (box) box.innerHTML = `<div class="dim" style="font-size:12px">正在连上游取额度…（10~40 秒）</div>`;
   try {
     const r = await fetch("/api/quota" + (force ? "?force=1" : ""), { cache: "no-store" });
     const qd = await r.json();
+    if (S.data) S.data.quota = qd;
     renderQuota(qd);
     renderOrbs(qd);
+    if (S.data) renderApiHealth(S.data);
   } catch (e) {
     if (box) box.innerHTML = `<div class="qnote">取额度失败：${esc(String(e.message || e))}</div>`;
   } finally {
     quotaLoading = false;
+    if (bMini) { bMini.disabled = false; bMini.textContent = "↻ 刷新"; }
+    if (bTop) { bTop.disabled = false; bTop.textContent = "取额度"; }
+  }
+}
+
+let refreshing = false, refreshFails = 0, lastOkAt = 0, pollTimer = null;
+
+function safe(name, targetSel, fn) {
+  try {
+    fn();
+    return null;
+  } catch (err) {
+    console.error(`[render:${name}]`, err);
+    const box = targetSel ? $(targetSel) : null;
+    if (box) {
+      box.innerHTML = `<div class="empty" style="color:var(--warn)">界面渲染异常（${esc(name)}）：${esc(err && err.message ? err.message : String(err))}</div>`;
+    }
+    return { name, err };
+  }
+}
+
+function scheduleRefresh(delay) {
+  if (pollTimer) clearTimeout(pollTimer);
+  const ms = delay != null ? delay : (document.hidden ? 30000 : 5000);
+  pollTimer = setTimeout(() => { refresh(); }, ms);
+}
+
+async function fetchJsonWithTimeout(url, ms) {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: c.signal, cache: "no-store" });
+    return r.ok ? await r.json() : null;
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(t);
   }
 }
 
 async function refresh() {
+  if (refreshing) return;                 /* ① 禁止并发重入：overview 慢时不要叠加请求 */
+  refreshing = true;
+  const ac = new AbortController();
+  const timeoutMs = S.data ? 9500 : 12000; /* ② 容忍 overview 0.3s–8s 抖动；配合 setTimeout 自调度绝不堆积 */
+  const tm = setTimeout(() => ac.abort(), timeoutMs);
+  let ovData, cl, ks, needLogin = false;
   try {
-    const probe = await fetch("/api/overview");
-    if (probe.status === 401) { showLogin(); return; }
-    const ovData = await probe.json();
-    const [cl, ks] = await Promise.all([
-      fetch("/api/clients").then((r) => r.json()).catch(() => ({ clients: [] })),
-      fetch("/api/keys").then((r) => r.json()).catch(() => ({ keys: [] })),
+    const probe = await fetch("/api/overview", { signal: ac.signal, cache: "no-store" });
+    if (probe.status === 401) { needLogin = true; showLogin(); return; }
+    if (!probe.ok) throw new Error("HTTP " + probe.status);
+    ovData = await probe.json();
+    [cl, ks] = await Promise.all([
+      fetchJsonWithTimeout("/api/clients", 8000),
+      fetchJsonWithTimeout("/api/keys", 6000),
     ]);
-    const d = ovData;
-    S.data = d;
-    S.clients = cl.clients || [];
-    S.keys = ks.keys || [];
-    const g = d.gateway;
-    const h = $("#health");
-    h.innerHTML = g.alive
-      ? `<span class="dot on"></span><span>运行中 · :${g.port} · ↑${g.uptime || "—"}</span>`
-      : `<span class="dot off"></span><span>已停止</span>`;
-    renderChain(d);
-    renderModels(d);
-    renderIssues(d);
-    renderEvents(d);
-    renderKV(d);
-    renderUsage(d);
-    renderQuota(d.quota);
-    if (d.quota && Object.keys(d.quota).length) renderOrbs(d.quota);
-    else if (!quotaLoading && Date.now() - lastQuotaTry > 60000) loadQuota(false);
-    if (!d.quota && !quotaLoading && Date.now() - lastQuotaTry > 90000) setTimeout(() => loadQuota(false), 800);
-    renderApiEndpoints(d);
-    renderClients(d);
-    renderKeys();
-    renderApiGen(d);
-    renderApiHealth(d);
   } catch (e) {
-    $("#health").innerHTML = `<span class="dot off"></span><span>控制台后端断开</span>`;
+    refreshFails++;
+    const isAbort = e && e.name === "AbortError";
+    const reason = isAbort ? `请求超时（>${(timeoutMs / 1000).toFixed(1)}s）` : ((e && e.message) || "网络异常");
+    console.warn(`[refresh:fetch] 第 ${refreshFails} 次失败:`, reason);
+    const h = $("#health");
+    if (h) {
+      const lastStr = lastOkAt ? fmtClock(lastOkAt) : "";
+      h.title = `取数异常（连续 ${refreshFails} 次）：${reason}` + (lastStr ? ` · 上次成功 ${lastStr}` : "");
+      if (refreshFails >= 3) {
+        h.innerHTML = lastStr
+          ? `<span class="dot ${isAbort ? "warn" : "off"}"></span><span>${isAbort ? "后端响应慢" : "后端未响应"} · 上次 ${esc(lastStr)}</span>`
+          : `<span class="dot off"></span><span>后端未响应（连续 ${refreshFails} 次）</span>`;
+      } else if (!S.data) {
+        h.innerHTML = `<span class="dot warn"></span><span>连接中…（重试 ${refreshFails}/3）</span>`;
+      }
+    }
+    return;
+  } finally {
+    clearTimeout(tm);
+    refreshing = false;
+    if (!needLogin) scheduleRefresh();
+  }
+
+  /* ③ 取数与渲染解耦：单个区块抛错只在该区块提示，不伪装成后端断开 */
+  refreshFails = 0;
+  lastOkAt = Date.now();
+  const d = ovData || {};
+  S.data = d;
+  if (cl && Array.isArray(cl.clients)) S.clients = cl.clients;
+  else if (!S.clients) S.clients = [];
+  if (ks && Array.isArray(ks.keys)) S.keys = ks.keys;
+  else if (!S.keys) S.keys = [];
+
+  const errs = [
+    safe("链路拓扑", "#lane-l", () => renderChain(d)),
+    safe("模型矩阵", "#mgrid", () => renderModels(d)),
+    safe("额度与故障", "#issues", () => renderIssues(d)),
+    safe("最近事件", "#events", () => renderEvents(d)),
+    safe("运行明细", "#kv", () => renderKV(d)),
+    safe("用量窗口", "#uw-hist", () => renderUsage(d)),
+    safe("额度余量", "#quota", () => renderQuota(d.quota)),
+    safe("额度球", "#orbs", () => renderOrbs(d.quota || {})),
+    safe("API 端点", "#api-ep", () => renderApiEndpoints(d)),
+    safe("本机客户端", "#clients", () => renderClients(d)),
+    safe("访问密钥", "#keys", () => renderKeys()),
+    safe("接入片段", "#api-gen", () => renderApiGen(d)),
+    safe("上游健康", "#api-health", () => renderApiHealth(d)),
+  ].filter(Boolean);
+
+  if ((!d.quota || !Object.keys(d.quota).length) && !quotaLoading && Date.now() - lastQuotaTry > 60000) {
+    loadQuota(false);
+  }
+
+  const g = d.gateway || {};
+  const h = $("#health");
+  if (h) {
+    const syncAt = fmtClock(lastOkAt);
+    if (errs.length) {
+      const msg = errs.map((x) => `${x.name}: ${(x.err && x.err.message) || x.err}`).join(" | ");
+      h.innerHTML = `<span class="dot warn"></span><span>${g.alive ? `运行中 · :${esc(String(g.port || ""))}` : "已停止"} · 界面渲染异常</span>`;
+      h.title = `界面局部渲染异常（详见控制台）：${msg}`;
+    } else {
+      h.innerHTML = g.alive
+        ? `<span class="dot on"></span><span>运行中 · :${esc(String(g.port || ""))} · ↑${esc(g.uptime || "—")}</span>`
+        : `<span class="dot off"></span><span>已停止</span>`;
+      h.title = `上次同步 ${syncAt}`;
+    }
   }
 }
 
 /* ───────── 交互 ───────── */
-$("#tabs").addEventListener("click", (e) => {
+const _modelSeg = document.querySelector(".models .seg");
+if (_modelSeg) _modelSeg.addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
-  [...$("#tabs").children].forEach((x) => x.classList.toggle("on", x === b));
-  S.group = b.dataset.g;
-  renderModels(S.data);
+  [..._modelSeg.children].forEach((x) => x.classList.toggle("on", x === b));
+  S.group = b.dataset.g || "all";
+  if (S.data) renderModels(S.data);
 });
-$("#q").addEventListener("input", (e) => { S.q = e.target.value.trim(); renderModels(S.data); });
+$("#q").addEventListener("input", (e) => { S.q = e.target.value.trim(); if (S.data) renderModels(S.data); });
+_b("#alertdot", "click", openEventLog);
+_b("#drawer-mask", "click", closeDrawer);
+_b("#evfold", "toggle", () => { if (S.data) renderEvents(S.data); });
+_b("#btn-quota", "click", async () => {
+  await loadQuota(true);
+});
+_b("[data-quota-mini]", "click", async () => {
+  await loadQuota(true);
+});
+_b(".models [data-pg-toggle]", "click", () => togglePlayground());
 
 /* 添加账号 */
 const _el = (sel) => document.querySelector(sel);
@@ -2512,26 +3663,26 @@ const _o_btn_restart = $("#btn-restart"); if (_o_btn_restart) _o_btn_restart.onc
   setTimeout(refresh, 1200);
 };
 
-const _o_btn_stop = $("#btn-stop"); if (_o_btn_stop) _o_btn_stop.onclick = async () => {
-  if (!confirm("停止网关？所有已配置的客户端会立刻断连。")) return;
-  const r = await fetch("/api/service", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "stop" }) }).then((x) => x.json());
-  toast(r.ok ? "已停止" : "停止命令已发出（端口已释放）", "ok");
-  setTimeout(refresh, 1200);
-};
+const _o_btn_stop = $("#btn-stop"); if (_o_btn_stop) _o_btn_stop.onclick = confirmAndStopGateway;
 
 const _o_btn_backup = $("#btn-backup"); if (_o_btn_backup) _o_btn_backup.onclick = async () => {
   const b = $("#btn-backup"); b.disabled = true;
-  const r = await fetch("/api/backup", { method: "POST" }).then((x) => x.json());
-  toast(r.ok ? "备份完成" : "备份失败：" + (r.err || ""), r.ok ? "ok" : "bad");
-  b.disabled = false; refresh();
+  try {
+    const r = await fetch("/api/backup", { method: "POST" }).then((x) => x.json());
+    toast(r.ok ? ("备份完成" + (r.file ? "：" + r.file : "")) : ("备份失败：" + (r.error || r.err || "未知错误")), r.ok ? "ok" : "bad");
+    refresh();
+  } catch (e) { toast("备份失败", "bad"); }
+  finally { b.disabled = false; }
 };
 
 window.addEventListener("resize", () => { if (S.data) requestAnimationFrame(drawWires); });
 
 window.__boot = "A";
-try { initTabs(); window.__boot = "B"; } catch (e) { window.__boot = "INITTABS_ERR:" + e.message; }
+try { initTabs(); initNotifySeg(); window.__boot = "B"; } catch (e) { window.__boot = "INITTABS_ERR:" + e.message; }
 try { refresh(); window.__boot = "C"; } catch (e2) { window.__boot = "REFRESH_ERR:" + e2.message; }
-setInterval(refresh, 5000);
+document.addEventListener("visibilitychange", () => {
+  if (!refreshing) scheduleRefresh(document.hidden ? 30000 : 200);
+});
 window.__boot = (window.__boot || "") + "|end";
 </script>
 
